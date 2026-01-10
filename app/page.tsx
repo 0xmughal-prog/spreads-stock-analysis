@@ -13,14 +13,23 @@ import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import { Stock, FilterState, TabType } from '@/lib/types'
 import { generateMockStocks } from '@/lib/api'
+import { getCache, setCache, CACHE_KEYS, getCacheInfo, clearCache } from '@/lib/cache'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
 const COMPARE_STORAGE_KEY = 'spreads_compare'
+
+interface StockApiResponse {
+  data: Stock[]
+  source: 'api' | 'mock'
+  message: string
+}
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard')
   const [stocks, setStocks] = useState<Stock[]>([])
   const [loading, setLoading] = useState(true)
+  const [dataSource, setDataSource] = useState<'api' | 'mock' | 'cache'>('mock')
+  const [cacheHoursRemaining, setCacheHoursRemaining] = useState<number | null>(null)
   const [watchlist, setWatchlist] = useState<string[]>([])
   const [compareList, setCompareList] = useState<string[]>([])
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
@@ -36,23 +45,80 @@ export default function Home() {
     hasDividend: null,
   })
 
-  // Load stocks
+  // Load stocks with caching
   useEffect(() => {
     const loadStocks = async () => {
       setLoading(true)
       try {
-        // In production, this would call the API
-        // For demo, we use mock data
-        const data = generateMockStocks()
-        setStocks(data)
+        // Check localStorage cache first
+        const cacheInfo = getCacheInfo(CACHE_KEYS.STOCKS)
+
+        if (cacheInfo.isValid) {
+          const cachedData = getCache<Stock[]>(CACHE_KEYS.STOCKS)
+          if (cachedData && cachedData.length > 0) {
+            setStocks(cachedData)
+            setDataSource('cache')
+            setCacheHoursRemaining(cacheInfo.hoursRemaining)
+            setLoading(false)
+            return
+          }
+        }
+
+        // Fetch from API if no valid cache
+        const response = await fetch('/api/stocks')
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch stocks')
+        }
+
+        const result: StockApiResponse = await response.json()
+        setStocks(result.data)
+        setDataSource(result.source)
+
+        // Cache the data for 24 hours (only if from API, not mock)
+        if (result.source === 'api') {
+          setCache(CACHE_KEYS.STOCKS, result.data)
+          setCacheHoursRemaining(24)
+        }
       } catch (error) {
         console.error('Failed to load stocks:', error)
+        // Fall back to mock data on error
+        const data = generateMockStocks()
+        setStocks(data)
+        setDataSource('mock')
       } finally {
         setLoading(false)
       }
     }
 
     loadStocks()
+  }, [])
+
+  // Function to force refresh data
+  const handleRefreshData = useCallback(async () => {
+    setLoading(true)
+    clearCache(CACHE_KEYS.STOCKS)
+
+    try {
+      const response = await fetch('/api/stocks')
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch stocks')
+      }
+
+      const result: StockApiResponse = await response.json()
+      setStocks(result.data)
+      setDataSource(result.source)
+
+      if (result.source === 'api') {
+        setCache(CACHE_KEYS.STOCKS, result.data)
+        setCacheHoursRemaining(24)
+      }
+    } catch (error) {
+      console.error('Failed to refresh stocks:', error)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   // Load watchlist and compare list from localStorage
@@ -144,10 +210,46 @@ export default function Home() {
             <StockOfTheWeek stocks={stocks} onSelectStock={handleSelectStock} />
 
             <div className="mb-6">
-              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>S&P 500 Stocks</h2>
-              <p style={{ color: 'var(--text-secondary)' }}>
-                Analyze {stocks.length} stocks with comprehensive financial metrics
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+                    Top US Stocks by Market Cap
+                  </h2>
+                  <p style={{ color: 'var(--text-secondary)' }}>
+                    Analyze {stocks.length} stocks with price, P/E, EPS, and dividend data
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {/* Data source indicator */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
+                    style={{
+                      backgroundColor: dataSource === 'api' ? 'rgba(34, 197, 94, 0.1)' :
+                        dataSource === 'cache' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+                      color: dataSource === 'api' ? 'rgb(34, 197, 94)' :
+                        dataSource === 'cache' ? 'rgb(59, 130, 246)' : 'rgb(234, 179, 8)',
+                    }}>
+                    <span className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: dataSource === 'api' ? 'rgb(34, 197, 94)' :
+                          dataSource === 'cache' ? 'rgb(59, 130, 246)' : 'rgb(234, 179, 8)',
+                      }} />
+                    {dataSource === 'api' ? 'Live Data' :
+                      dataSource === 'cache' ? `Cached (${cacheHoursRemaining}h remaining)` : 'Demo Data'}
+                  </div>
+                  {/* Refresh button */}
+                  <button
+                    onClick={handleRefreshData}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50"
+                    style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
+                    title="Refresh data from API">
+                    <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
             </div>
 
             <StockFilters filters={filters} onFilterChange={setFilters} />

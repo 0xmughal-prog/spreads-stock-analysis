@@ -2,6 +2,24 @@ import { SP500Constituent, StockQuote, CompanyProfile, IncomeStatement, Stock, E
 
 const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3'
 
+// Stock screener response type
+interface ScreenerStock {
+  symbol: string
+  companyName: string
+  marketCap: number
+  sector: string
+  industry: string
+  beta: number
+  price: number
+  lastAnnualDividend: number
+  volume: number
+  exchange: string
+  exchangeShortName: string
+  country: string
+  isEtf: boolean
+  isActivelyTrading: boolean
+}
+
 export async function getSP500Constituents(): Promise<SP500Constituent[]> {
   const apiKey = process.env.FMP_API_KEY
   if (!apiKey) {
@@ -15,6 +33,39 @@ export async function getSP500Constituents(): Promise<SP500Constituent[]> {
 
   if (!response.ok) {
     throw new Error(`Failed to fetch S&P 500 constituents: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get top stocks by market cap using stock screener
+ * Cost-efficient: 1 API call for up to 1000 stocks
+ */
+export async function getTopStocksByMarketCap(limit: number = 1000): Promise<ScreenerStock[]> {
+  const apiKey = process.env.FMP_API_KEY
+  if (!apiKey) {
+    throw new Error('FMP_API_KEY is not set')
+  }
+
+  // Use stock screener to get top stocks by market cap
+  // Filter: US exchanges, actively trading, not ETFs, market cap > 1B
+  const params = new URLSearchParams({
+    apikey: apiKey,
+    marketCapMoreThan: '1000000000', // $1B minimum
+    isEtf: 'false',
+    isActivelyTrading: 'true',
+    exchange: 'NYSE,NASDAQ,AMEX',
+    limit: limit.toString(),
+  })
+
+  const response = await fetch(
+    `${FMP_BASE_URL}/stock-screener?${params}`,
+    { next: { revalidate: 86400 } }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch stock screener: ${response.statusText}`)
   }
 
   return response.json()
@@ -34,6 +85,29 @@ export async function getQuotes(symbols: string[]): Promise<StockQuote[]> {
 
   if (!response.ok) {
     throw new Error(`Failed to fetch quotes: ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Get batch company profiles (for dividend data and additional info)
+ * Can batch up to ~50 symbols per request
+ */
+export async function getBatchProfiles(symbols: string[]): Promise<CompanyProfile[]> {
+  const apiKey = process.env.FMP_API_KEY
+  if (!apiKey) {
+    throw new Error('FMP_API_KEY is not set')
+  }
+
+  const symbolString = symbols.join(',')
+  const response = await fetch(
+    `${FMP_BASE_URL}/profile/${symbolString}?apikey=${apiKey}`,
+    { next: { revalidate: 3600 } }
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch company profiles: ${response.statusText}`)
   }
 
   return response.json()
@@ -75,7 +149,102 @@ export async function getIncomeStatement(symbol: string, limit = 1): Promise<Inc
   return response.json()
 }
 
+/**
+ * Get all stock data for up to 1000 stocks
+ * Uses stock screener + batch quotes for cost efficiency
+ * API calls: 1 (screener) + ~20 (quotes in batches of 50) + ~20 (profiles in batches of 50) = ~41 total
+ */
 export async function getAllStockData(): Promise<Stock[]> {
+  // Step 1: Get top 1000 stocks by market cap using screener (1 API call)
+  const screenerStocks = await getTopStocksByMarketCap(1000)
+
+  if (!screenerStocks || screenerStocks.length === 0) {
+    throw new Error('No stocks returned from screener')
+  }
+
+  // Create a map of screener data for quick lookup
+  const screenerMap = new Map(screenerStocks.map(s => [s.symbol, s]))
+  const symbols = screenerStocks.map(s => s.symbol)
+
+  // Step 2: Batch fetch quotes (50 per request for reliability)
+  const quoteBatchSize = 50
+  const allQuotes: StockQuote[] = []
+
+  for (let i = 0; i < symbols.length; i += quoteBatchSize) {
+    const batch = symbols.slice(i, i + quoteBatchSize)
+    try {
+      const quotes = await getQuotes(batch)
+      allQuotes.push(...quotes)
+    } catch (error) {
+      console.error(`Failed to fetch quotes for batch ${i / quoteBatchSize}:`, error)
+    }
+  }
+
+  // Step 3: Batch fetch profiles for dividend data (50 per request)
+  const profileBatchSize = 50
+  const allProfiles: CompanyProfile[] = []
+
+  for (let i = 0; i < symbols.length; i += profileBatchSize) {
+    const batch = symbols.slice(i, i + profileBatchSize)
+    try {
+      const profiles = await getBatchProfiles(batch)
+      allProfiles.push(...profiles)
+    } catch (error) {
+      console.error(`Failed to fetch profiles for batch ${i / profileBatchSize}:`, error)
+    }
+  }
+
+  // Create maps for quick lookup
+  const quoteMap = new Map(allQuotes.map(q => [q.symbol, q]))
+  const profileMap = new Map(allProfiles.map(p => [p.symbol, p]))
+
+  // Step 4: Combine all data into Stock objects
+  const stocks = symbols
+    .map(symbol => {
+      const screener = screenerMap.get(symbol)
+      const quote = quoteMap.get(symbol)
+      const profile = profileMap.get(symbol)
+
+      if (!screener) return null
+
+      // Calculate dividend yield: (lastDiv / price) * 100
+      let dividendYield: number | null = null
+      if (profile?.lastDiv && quote?.price && quote.price > 0) {
+        dividendYield = parseFloat(((profile.lastDiv / quote.price) * 100).toFixed(2))
+      }
+
+      return {
+        symbol: symbol,
+        name: quote?.name || profile?.companyName || screener.companyName,
+        price: quote?.price ?? screener.price,
+        change: quote?.change ?? 0,
+        changesPercentage: quote?.changesPercentage ?? 0,
+        marketCap: quote?.marketCap ?? screener.marketCap,
+        pe: quote?.pe ?? null,
+        eps: quote?.eps ?? null,
+        ebitda: null as number | null,
+        dividendYield,
+        sector: profile?.sector || screener.sector || 'Unknown',
+        industry: profile?.industry || screener.industry || '',
+        exchange: quote?.exchange || screener.exchange,
+        volume: quote?.volume ?? screener.volume,
+        avgVolume: quote?.avgVolume ?? screener.volume,
+        dayHigh: quote?.dayHigh ?? screener.price,
+        dayLow: quote?.dayLow ?? screener.price,
+        yearHigh: quote?.yearHigh ?? screener.price * 1.2,
+        yearLow: quote?.yearLow ?? screener.price * 0.8,
+      }
+    })
+    .filter((stock): stock is Stock => stock !== null)
+    .sort((a, b) => b.marketCap - a.marketCap) // Sort by market cap descending
+
+  return stocks
+}
+
+/**
+ * Legacy function for S&P 500 only data (fewer API calls)
+ */
+export async function getSP500StockData(): Promise<Stock[]> {
   const constituents = await getSP500Constituents()
 
   const batchSize = 50
