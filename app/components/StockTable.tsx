@@ -113,17 +113,17 @@ export default function StockTable({
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) {
       return (
-        <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className="w-4 h-4" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
         </svg>
       )
     }
     return sortDirection === 'asc' ? (
-      <svg className="w-4 h-4 text-spreads-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-4 h-4" style={{ color: 'var(--spreads-green)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
       </svg>
     ) : (
-      <svg className="w-4 h-4 text-spreads-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-4 h-4" style={{ color: 'var(--spreads-green)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     )
@@ -132,8 +132,8 @@ export default function StockTable({
   return (
     <div className="card overflow-hidden">
       <div className="table-container">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full" style={{ borderCollapse: 'collapse' }}>
+          <thead style={{ backgroundColor: 'var(--bg-tertiary)' }}>
             <tr>
               <th className="table-header w-10"></th>
               <th className="table-header" onClick={() => handleSort('symbol')}>
@@ -189,11 +189,12 @@ export default function StockTable({
               <th className="table-header w-24">Actions</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
+          <tbody style={{ backgroundColor: 'var(--card-bg)' }}>
             {paginatedStocks.map((stock) => (
               <tr
                 key={stock.symbol}
-                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                className="cursor-pointer transition-colors table-row-animated"
+                style={{ borderBottom: '1px solid var(--border-color)' }}
                 onClick={() => onSelectStock(stock)}
               >
                 <td className="table-cell">
@@ -202,20 +203,23 @@ export default function StockTable({
                       e.stopPropagation()
                       onToggleWatchlist(stock.symbol)
                     }}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
+                    className="p-1 rounded transition-colors"
+                    style={{ backgroundColor: 'transparent' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     {watchlist.includes(stock.symbol) ? (
                       <svg className="w-5 h-5 text-yellow-500 fill-current" viewBox="0 0 24 24">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </svg>
                     ) : (
-                      <svg className="w-5 h-5 text-gray-300 hover:text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-5 h-5 hover:text-yellow-500" style={{ color: 'var(--text-muted)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                       </svg>
                     )}
                   </button>
                 </td>
-                <td className="table-cell font-semibold text-spreads-green">{stock.symbol}</td>
+                <td className="table-cell font-semibold" style={{ color: 'var(--spreads-green)' }}>{stock.symbol}</td>
                 <td className="table-cell max-w-[200px] truncate">{stock.name}</td>
                 <td className="table-cell font-medium">{formatCurrency(stock.price)}</td>
                 <td className={`table-cell font-medium ${stock.changesPercentage >= 0 ? 'positive' : 'negative'}`}>
@@ -229,7 +233,13 @@ export default function StockTable({
                   {stock.dividendYield ? `${stock.dividendYield.toFixed(2)}%` : 'N/A'}
                 </td>
                 <td className="table-cell">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-spreads-green-50 text-spreads-green">
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                    style={{
+                      backgroundColor: 'var(--bg-tertiary)',
+                      color: 'var(--spreads-green)'
+                    }}
+                  >
                     {stock.sector}
                   </span>
                 </td>
@@ -239,11 +249,12 @@ export default function StockTable({
                       e.stopPropagation()
                       onToggleCompare(stock.symbol)
                     }}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                    className="px-2 py-1 text-xs rounded transition-colors"
+                    style={
                       compareList.includes(stock.symbol)
-                        ? 'bg-spreads-green text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
+                        ? { backgroundColor: 'var(--spreads-green)', color: 'white' }
+                        : { backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }
+                    }
                   >
                     {compareList.includes(stock.symbol) ? 'Selected' : 'Compare'}
                   </button>
@@ -255,8 +266,14 @@ export default function StockTable({
       </div>
 
       {/* Pagination */}
-      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-        <div className="text-sm text-gray-600">
+      <div
+        className="px-4 py-3 flex items-center justify-between"
+        style={{
+          backgroundColor: 'var(--bg-tertiary)',
+          borderTop: '1px solid var(--border-color)'
+        }}
+      >
+        <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
           Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{' '}
           {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedStocks.length)} of{' '}
           {filteredAndSortedStocks.length} stocks
@@ -265,7 +282,12 @@ export default function StockTable({
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            style={{
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--card-bg)',
+              color: 'var(--text-primary)'
+            }}
           >
             Previous
           </button>
@@ -285,11 +307,16 @@ export default function StockTable({
                 <button
                   key={pageNum}
                   onClick={() => setCurrentPage(pageNum)}
-                  className={`w-8 h-8 text-sm rounded ${
+                  className="w-8 h-8 text-sm rounded transition-colors"
+                  style={
                     currentPage === pageNum
-                      ? 'bg-spreads-green text-white'
-                      : 'border border-gray-300 hover:bg-gray-100'
-                  }`}
+                      ? { backgroundColor: 'var(--spreads-green)', color: 'white' }
+                      : {
+                          border: '1px solid var(--border-color)',
+                          backgroundColor: 'var(--card-bg)',
+                          color: 'var(--text-primary)'
+                        }
+                  }
                 >
                   {pageNum}
                 </button>
@@ -299,7 +326,12 @@ export default function StockTable({
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
-            className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            style={{
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--card-bg)',
+              color: 'var(--text-primary)'
+            }}
           >
             Next
           </button>

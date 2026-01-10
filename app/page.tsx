@@ -100,6 +100,15 @@ export default function Home() {
     setCompareList([])
   }, [])
 
+  const handleAddToCompare = useCallback((symbol: string) => {
+    setCompareList((prev) => {
+      if (prev.includes(symbol) || prev.length >= 5) {
+        return prev
+      }
+      return [...prev, symbol]
+    })
+  }, [])
+
   const handleSectorClick = useCallback((sector: string) => {
     setFilters((prev) => ({ ...prev, sector }))
   }, [])
@@ -116,12 +125,12 @@ export default function Home() {
     if (loading) {
       return (
         <div className="animate-pulse space-y-6">
-          <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+          <div className="h-16 rounded-xl skeleton"></div>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
-              <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+              <div className="h-96 rounded-xl skeleton"></div>
             </div>
-            <div className="h-96 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
+            <div className="h-96 rounded-xl skeleton"></div>
           </div>
         </div>
       )
@@ -135,8 +144,8 @@ export default function Home() {
             <StockOfTheWeek stocks={stocks} onSelectStock={handleSelectStock} />
 
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">S&P 500 Stocks</h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>S&P 500 Stocks</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
                 Analyze {stocks.length} stocks with comprehensive financial metrics
               </p>
             </div>
@@ -184,8 +193,8 @@ export default function Home() {
         return (
           <div key="watchlist" className="content-panel">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Your Watchlist</h2>
-              <p className="text-gray-600 dark:text-gray-400">Track and monitor your favorite stocks</p>
+              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Your Watchlist</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>Track and monitor your favorite stocks</p>
             </div>
 
             <Watchlist
@@ -203,8 +212,8 @@ export default function Home() {
         return (
           <div key="compare" className="content-panel">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Compare Stocks</h2>
-              <p className="text-gray-600 dark:text-gray-400">
+              <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Compare Stocks</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
                 Compare up to 5 stocks side by side
               </p>
             </div>
@@ -214,6 +223,7 @@ export default function Home() {
               compareList={compareList}
               onRemove={handleToggleCompare}
               onClearAll={handleClearCompare}
+              onAddStock={handleAddToCompare}
             />
           </div>
         )
@@ -280,14 +290,14 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="border-t border-gray-200 dark:border-gray-800 mt-16">
+        <footer className="mt-16" style={{ borderTop: '1px solid var(--border-color)' }}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="flex flex-col md:flex-row items-center justify-between">
               <div className="mb-4 md:mb-0">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Spreads Stock Analysis</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">S&P 500 Financial Dashboard</p>
+                <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Spreads Stock Analysis</h3>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>S&P 500 Financial Dashboard</p>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 Data provided by Financial Modeling Prep
               </div>
             </div>
