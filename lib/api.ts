@@ -1,6 +1,478 @@
 import { SP500Constituent, StockQuote, CompanyProfile, IncomeStatement, Stock, EarningsEvent } from './types'
 
 const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3'
+const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1'
+
+// Finnhub API key - get your free key at https://finnhub.io
+const FINNHUB_API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'd5hd4upr01qqequ1n9mgd5hd4upr01qqequ1n9n0'
+
+// Cache configuration
+const CACHE_KEY = 'finnhub_stocks_cache'
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+// Top 1000 stock symbols (S&P500 + NASDAQ 100 + Russell 2000 sampling)
+const TOP_STOCK_SYMBOLS = [
+  // S&P 500 Major Components
+  'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'NVDA', 'META', 'BRK.B', 'TSLA', 'UNH',
+  'JNJ', 'JPM', 'V', 'XOM', 'PG', 'MA', 'HD', 'CVX', 'MRK', 'ABBV',
+  'LLY', 'PEP', 'KO', 'COST', 'BAC', 'PFE', 'WMT', 'TMO', 'CSCO', 'MCD',
+  'DIS', 'ABT', 'ACN', 'DHR', 'VZ', 'ADBE', 'NKE', 'CMCSA', 'TXN', 'NEE',
+  'PM', 'WFC', 'BMY', 'COP', 'RTX', 'UNP', 'MS', 'UPS', 'ORCL', 'HON',
+  'INTC', 'IBM', 'LOW', 'QCOM', 'GE', 'CAT', 'AMGN', 'BA', 'SPGI', 'GS',
+  'ELV', 'SBUX', 'DE', 'INTU', 'BLK', 'ISRG', 'GILD', 'AXP', 'MDLZ', 'ADI',
+  'SYK', 'TJX', 'BKNG', 'REGN', 'ADP', 'VRTX', 'CVS', 'MMC', 'LMT', 'C',
+  'TMUS', 'AMT', 'SCHW', 'CI', 'MO', 'EOG', 'ZTS', 'SO', 'PLD', 'DUK',
+  'EQIX', 'BDX', 'SLB', 'NOC', 'CB', 'BSX', 'AON', 'ITW', 'CL', 'CME',
+  'LRCX', 'MU', 'ICE', 'SHW', 'PGR', 'FISV', 'MMM', 'FDX', 'PNC', 'APD',
+  'WM', 'CSX', 'USB', 'MCK', 'TGT', 'MCO', 'EMR', 'NSC', 'PSA', 'ORLY',
+  'CCI', 'ATVI', 'GD', 'FCX', 'SNPS', 'CDNS', 'HCA', 'KLAC', 'APH', 'CTAS',
+  'AJG', 'AZO', 'F', 'GM', 'MCHP', 'ANET', 'PCAR', 'TT', 'ADSK', 'NEM',
+  'TDG', 'CARR', 'ROP', 'OXY', 'MSI', 'KMB', 'AEP', 'ECL', 'SRE', 'HUM',
+  'IDXX', 'GIS', 'PAYX', 'WELL', 'MSCI', 'EW', 'ADM', 'HSY', 'MNST', 'IQV',
+  'PSX', 'VLO', 'BIIB', 'A', 'DXCM', 'FAST', 'AFL', 'EXC', 'CTSH', 'YUM',
+  'STZ', 'MPC', 'D', 'FTNT', 'DHI', 'CMG', 'LHX', 'AIG', 'HLT', 'PRU',
+  'ALL', 'DOW', 'XEL', 'DLTR', 'BK', 'KR', 'ROST', 'O', 'EA', 'VRSK',
+  'TEL', 'AME', 'ES', 'CTVA', 'WBD', 'KDP', 'OTIS', 'RMD', 'IFF', 'PEG',
+  // NASDAQ 100 additions
+  'NFLX', 'AMD', 'PYPL', 'ABNB', 'COIN', 'MELI', 'WDAY', 'TEAM', 'CRWD', 'ZS',
+  'DDOG', 'SNOW', 'NET', 'MDB', 'PANW', 'VEEV', 'TTD', 'SPLK', 'OKTA', 'ZM',
+  'DOCU', 'ROKU', 'TWLO', 'SQ', 'SNAP', 'PINS', 'UBER', 'LYFT', 'DASH', 'RBLX',
+  'U', 'PLTR', 'PATH', 'CPNG', 'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'BIDU',
+  'JD', 'PDD', 'BABA', 'SE', 'GRAB', 'SHOP', 'ETSY', 'W', 'CHWY', 'CVNA',
+  'HOOD', 'SOFI', 'AFRM', 'UPST', 'BILL', 'HUBS', 'FIVN', 'RNG', 'TWST', 'EXAS',
+  // Russell 2000 sampling (mid/small caps)
+  'SMCI', 'APP', 'CELH', 'DUOL', 'IOT', 'SAIA', 'ELF', 'AXON', 'TOST', 'BROS',
+  'WING', 'CAVA', 'KRYS', 'RVMD', 'CRSP', 'NTLA', 'BEAM', 'EDIT', 'VCYT', 'NVAX',
+  'MRNA', 'VXRT', 'INO', 'OCGN', 'SNDL', 'TLRY', 'CGC', 'ACB', 'CRON', 'OGI',
+  'SPCE', 'RKLB', 'ASTR', 'MNTS', 'RDW', 'BKSY', 'ASTS', 'GSAT', 'IRDM', 'VSAT',
+  'GILT', 'VNET', 'BGNE', 'ZLAB', 'LEGN', 'BNR', 'RETA', 'RXDX', 'DAWN', 'ARQT',
+  'AKRO', 'IONS', 'ALNY', 'SGEN', 'NBIX', 'SRPT', 'RARE', 'BMRN', 'INCY', 'JAZZ',
+  'EXEL', 'HALO', 'ARVN', 'KYMR', 'DYN', 'IMVT', 'RCKT', 'GTHX', 'SWTX', 'KRTX',
+  'TGTX', 'CYTK', 'PRTA', 'CORT', 'HRMY', 'ETNB', 'CERT', 'IRON', 'RXST', 'ACAD',
+  // Financial sector additions
+  'SCHW', 'TFC', 'PNC', 'MTB', 'KEY', 'CFG', 'RF', 'HBAN', 'ZION', 'CMA',
+  'FRC', 'SIVB', 'PACW', 'WAL', 'EWBC', 'FHN', 'UMBF', 'CBSH', 'PNFP', 'BOKF',
+  'FFIN', 'SFBS', 'GBCI', 'IBOC', 'WAFD', 'BANR', 'COLB', 'WSFS', 'HOPE', 'TRMK',
+  'HTLF', 'FFBC', 'FULT', 'FIBK', 'PPBI', 'BPOP', 'OFG', 'FBK', 'SBCF', 'TOWN',
+  // Healthcare sector additions
+  'MRNA', 'BNTX', 'NVAX', 'VXRT', 'INO', 'OCGN', 'SNDX', 'DNLI', 'FOLD', 'CDMO',
+  'TARS', 'ASND', 'SMMT', 'AKBA', 'MNKD', 'OMER', 'VNDA', 'CARA', 'AUPH', 'XNCR',
+  'ALEC', 'STRO', 'IGMS', 'CGEM', 'ALDX', 'KURA', 'LUNG', 'RLAY', 'ABCL', 'AVXL',
+  'NRIX', 'VKTX', 'PRAX', 'ANNX', 'PTGX', 'RXRX', 'SDGR', 'EXAI', 'RGNX', 'APLT',
+  // Technology sector additions
+  'CRWD', 'ZS', 'NET', 'DDOG', 'SNOW', 'MDB', 'DOCN', 'CFLT', 'ESTC', 'SUMO',
+  'DT', 'NEWR', 'RPD', 'TENB', 'QLYS', 'CYBR', 'VRNS', 'SAIL', 'AVLR', 'COUP',
+  'MANH', 'NCNO', 'APPN', 'ALTR', 'CALX', 'LITE', 'VIAV', 'INFN', 'CIEN', 'JNPR',
+  'ANET', 'FFIV', 'NTAP', 'PSTG', 'NEOG', 'NOVT', 'GNTX', 'CRS', 'HLIT', 'IRDM',
+  // Industrial sector additions
+  'GWW', 'FTV', 'ROK', 'PH', 'DOV', 'SWK', 'GNRC', 'XYL', 'NDSN', 'IEX',
+  'KEYS', 'TDY', 'CPRT', 'J', 'LII', 'RRX', 'ALLE', 'AOS', 'MIDD', 'CFX',
+  'FSS', 'ENS', 'AIT', 'GGG', 'RBC', 'ITT', 'MWA', 'ESE', 'NPO', 'CW',
+  'HUBB', 'PNR', 'REVG', 'TRN', 'GBX', 'WERN', 'HTLD', 'ARCB', 'XPO', 'ODFL',
+  // Consumer sector additions
+  'LULU', 'DKS', 'ANF', 'GPS', 'AEO', 'URBN', 'BBWI', 'VSCO', 'RL', 'PVH',
+  'HBI', 'GIII', 'COLM', 'SKX', 'CROX', 'DECK', 'WWW', 'SHOO', 'CAL', 'BKE',
+  'BOOT', 'RH', 'LOVE', 'ARHS', 'PRPL', 'TPX', 'LEG', 'SNBR', 'ETD', 'VIAV',
+  'SIG', 'FOSL', 'MOV', 'TIF', 'WSM', 'FIVE', 'OLLI', 'BIG', 'DLTR', 'DG',
+  // Energy sector additions
+  'DVN', 'FANG', 'PXD', 'APA', 'HAL', 'BKR', 'NOV', 'CLR', 'OVV', 'CTRA',
+  'AR', 'RRC', 'SWN', 'EQT', 'CNX', 'MTDR', 'PDCE', 'CPE', 'TALO', 'CRK',
+  'GPOR', 'TELL', 'REI', 'PTEN', 'NBR', 'DRQ', 'TTI', 'CLB', 'OII', 'PUMP',
+  'WHD', 'NR', 'DNOW', 'SLCA', 'HP', 'LBRT', 'NEXT', 'NGL', 'ET', 'EPD',
+  // Materials sector additions
+  'NUE', 'STLD', 'CLF', 'X', 'RS', 'ATI', 'CMC', 'ZEUS', 'CRS', 'HAYN',
+  'SON', 'PKG', 'WRK', 'IP', 'GPK', 'SEE', 'BLL', 'CCK', 'SLGN', 'ATR',
+  'BERY', 'GEF', 'OI', 'MYE', 'MERC', 'TROX', 'KRO', 'CC', 'HUN', 'OLN',
+  'ASH', 'EMN', 'CE', 'AVNT', 'KWR', 'FUL', 'RPM', 'CBT', 'BCPC', 'KOP',
+  // Real Estate sector additions
+  'AVB', 'EQR', 'ESS', 'MAA', 'UDR', 'CPT', 'INVH', 'AMH', 'SUI', 'ELS',
+  'REXR', 'FR', 'STAG', 'TRNO', 'GTY', 'PLYM', 'IIPR', 'COLD', 'SBAC', 'LADR',
+  'MPW', 'VTR', 'OHI', 'HR', 'DOC', 'PEAK', 'NHI', 'LTC', 'UHT', 'GMRE',
+  'BRX', 'KIM', 'REG', 'FRT', 'AKR', 'ROIC', 'SITC', 'RPAI', 'WSR', 'PINE',
+  // Communication Services additions
+  'MTCH', 'IAC', 'ANGI', 'ZG', 'Z', 'GRPN', 'YELP', 'CARG', 'CARS', 'TRUE',
+  'SPOT', 'TME', 'LYV', 'MSGS', 'DLB', 'SIRI', 'ATUS', 'TGNA', 'GTN', 'SSP',
+  'NXST', 'SBGI', 'TEGN', 'GCI', 'GANNETT', 'NYT', 'TRI', 'WMG', 'SONO', 'HEAR',
+  'PARA', 'FOXA', 'FOX', 'NWS', 'NWSA', 'DISCA', 'DISCB', 'DISCK', 'VIAC', 'VIACA',
+  // Utilities sector additions
+  'AES', 'NRG', 'VST', 'OGE', 'POR', 'BKH', 'NWE', 'MDU', 'OGS', 'NJR',
+  'SJI', 'SR', 'SWX', 'MGEE', 'AVA', 'PNM', 'IDA', 'OTTR', 'HE', 'CPK',
+  'UTL', 'YORW', 'MSEX', 'WTRG', 'SJW', 'CWT', 'AWK', 'CWCO', 'AWR', 'WTR',
+  // More diverse additions for 1000
+  'NOW', 'CRM', 'WDAY', 'ZEN', 'FROG', 'API', 'MGNI', 'PUBM', 'DSP', 'TTD',
+  'APPS', 'MTTR', 'VIEW', 'MKFG', 'DM', 'NNDM', 'XONE', 'DDD', 'SSYS', 'PRLB',
+  'HPQ', 'DELL', 'HPE', 'NTAP', 'WDC', 'STX', 'PSTG', 'INFN', 'CIEN', 'JNPR',
+  'CSCO', 'MSI', 'ZBRA', 'GRMN', 'TER', 'LSCC', 'MPWR', 'SLAB', 'SWKS', 'QRVO',
+  'MRVL', 'ON', 'NXPI', 'STM', 'WOLF', 'DIOD', 'POWI', 'SMTC', 'ACLS', 'COHR',
+  'IPGP', 'MKSI', 'ENTG', 'CCMP', 'UCTT', 'FORM', 'ICHR', 'BRKS', 'AMAT', 'KLAC',
+  'LRCX', 'ASML', 'TER', 'SNPS', 'CDNS', 'ANSS', 'MTSI', 'SITM', 'PI', 'ALGM',
+  'VSH', 'CLS', 'FLEX', 'JBL', 'SANM', 'PLXS', 'TTMI', 'BHE', 'CTS', 'OSIS',
+  'PLUS', 'CRUS', 'AOSL', 'MXL', 'SYNA', 'HIMX', 'SGH', 'RMBS', 'PLAB', 'AMKR',
+  'CEVA', 'ACMR', 'ONTO', 'NVMI', 'AEHR', 'INDI', 'OUST', 'LAZR', 'VLDR', 'INVZ',
+  'MVIS', 'KOPN', 'VUZI', 'IMMR', 'HIMX', 'IDCC', 'III', 'INVE', 'RBBN', 'COMM',
+]
+
+// Finnhub API response types
+interface FinnhubQuote {
+  c: number  // Current price
+  d: number  // Change
+  dp: number // Percent change
+  h: number  // High price of the day
+  l: number  // Low price of the day
+  o: number  // Open price of the day
+  pc: number // Previous close price
+  t: number  // Timestamp
+}
+
+interface FinnhubMetrics {
+  metric: {
+    peBasicExclExtraTTM?: number
+    peExclExtraTTM?: number
+    peTTM?: number
+    epsBasicExclExtraItemsTTM?: number
+    epsExclExtraItemsTTM?: number
+    epsTTM?: number
+    ebitdaTTM?: number
+    ebitdaPerShareTTM?: number
+    marketCapitalization?: number
+    '52WeekHigh'?: number
+    '52WeekLow'?: number
+    dividendYieldIndicatedAnnual?: number
+    dividendPerShareAnnual?: number
+    beta?: number
+    'revenuePerShareTTM'?: number
+  }
+  series?: {
+    annual?: {
+      ebitda?: Array<{ v: number; period: string }>
+    }
+  }
+}
+
+interface CachedStockData {
+  stocks: Stock[]
+  timestamp: number
+}
+
+// Stock metadata for names, sectors, industries
+const STOCK_METADATA: Record<string, { name: string; sector: string; industry: string }> = {
+  'AAPL': { name: 'Apple Inc.', sector: 'Technology', industry: 'Consumer Electronics' },
+  'MSFT': { name: 'Microsoft Corporation', sector: 'Technology', industry: 'Software' },
+  'GOOGL': { name: 'Alphabet Inc.', sector: 'Communication Services', industry: 'Internet Services' },
+  'GOOG': { name: 'Alphabet Inc. Class C', sector: 'Communication Services', industry: 'Internet Services' },
+  'AMZN': { name: 'Amazon.com Inc.', sector: 'Consumer Discretionary', industry: 'E-Commerce' },
+  'NVDA': { name: 'NVIDIA Corporation', sector: 'Technology', industry: 'Semiconductors' },
+  'META': { name: 'Meta Platforms Inc.', sector: 'Communication Services', industry: 'Social Media' },
+  'TSLA': { name: 'Tesla Inc.', sector: 'Consumer Discretionary', industry: 'Electric Vehicles' },
+  'BRK.B': { name: 'Berkshire Hathaway Inc.', sector: 'Financials', industry: 'Insurance' },
+  'UNH': { name: 'UnitedHealth Group Inc.', sector: 'Healthcare', industry: 'Health Insurance' },
+  'JNJ': { name: 'Johnson & Johnson', sector: 'Healthcare', industry: 'Pharmaceuticals' },
+  'JPM': { name: 'JPMorgan Chase & Co.', sector: 'Financials', industry: 'Banks' },
+  'V': { name: 'Visa Inc.', sector: 'Financials', industry: 'Credit Services' },
+  'XOM': { name: 'Exxon Mobil Corporation', sector: 'Energy', industry: 'Oil & Gas' },
+  'PG': { name: 'Procter & Gamble Co.', sector: 'Consumer Staples', industry: 'Household Products' },
+  'MA': { name: 'Mastercard Inc.', sector: 'Financials', industry: 'Credit Services' },
+  'HD': { name: 'The Home Depot Inc.', sector: 'Consumer Discretionary', industry: 'Home Improvement' },
+  'CVX': { name: 'Chevron Corporation', sector: 'Energy', industry: 'Oil & Gas' },
+  'MRK': { name: 'Merck & Co. Inc.', sector: 'Healthcare', industry: 'Pharmaceuticals' },
+  'ABBV': { name: 'AbbVie Inc.', sector: 'Healthcare', industry: 'Biotechnology' },
+  'LLY': { name: 'Eli Lilly and Company', sector: 'Healthcare', industry: 'Pharmaceuticals' },
+  'PEP': { name: 'PepsiCo Inc.', sector: 'Consumer Staples', industry: 'Beverages' },
+  'KO': { name: 'The Coca-Cola Company', sector: 'Consumer Staples', industry: 'Beverages' },
+  'COST': { name: 'Costco Wholesale Corp.', sector: 'Consumer Staples', industry: 'Retail' },
+  'BAC': { name: 'Bank of America Corp.', sector: 'Financials', industry: 'Banks' },
+  'PFE': { name: 'Pfizer Inc.', sector: 'Healthcare', industry: 'Pharmaceuticals' },
+  'WMT': { name: 'Walmart Inc.', sector: 'Consumer Staples', industry: 'Retail' },
+  'TMO': { name: 'Thermo Fisher Scientific', sector: 'Healthcare', industry: 'Life Sciences' },
+  'CSCO': { name: 'Cisco Systems Inc.', sector: 'Technology', industry: 'Networking' },
+  'MCD': { name: "McDonald's Corporation", sector: 'Consumer Discretionary', industry: 'Restaurants' },
+  'DIS': { name: 'The Walt Disney Company', sector: 'Communication Services', industry: 'Entertainment' },
+  'NFLX': { name: 'Netflix Inc.', sector: 'Communication Services', industry: 'Streaming' },
+  'AMD': { name: 'Advanced Micro Devices', sector: 'Technology', industry: 'Semiconductors' },
+  'INTC': { name: 'Intel Corporation', sector: 'Technology', industry: 'Semiconductors' },
+  'ADBE': { name: 'Adobe Inc.', sector: 'Technology', industry: 'Software' },
+  'NKE': { name: 'NIKE Inc.', sector: 'Consumer Discretionary', industry: 'Apparel' },
+  'CRM': { name: 'Salesforce Inc.', sector: 'Technology', industry: 'Software' },
+  'ORCL': { name: 'Oracle Corporation', sector: 'Technology', industry: 'Software' },
+  'ACN': { name: 'Accenture plc', sector: 'Technology', industry: 'IT Services' },
+  'IBM': { name: 'IBM Corporation', sector: 'Technology', industry: 'IT Services' },
+  'QCOM': { name: 'Qualcomm Inc.', sector: 'Technology', industry: 'Semiconductors' },
+  'TXN': { name: 'Texas Instruments', sector: 'Technology', industry: 'Semiconductors' },
+  'NOW': { name: 'ServiceNow Inc.', sector: 'Technology', industry: 'Software' },
+  'INTU': { name: 'Intuit Inc.', sector: 'Technology', industry: 'Software' },
+  'SBUX': { name: 'Starbucks Corporation', sector: 'Consumer Discretionary', industry: 'Restaurants' },
+  'LOW': { name: "Lowe's Companies Inc.", sector: 'Consumer Discretionary', industry: 'Home Improvement' },
+  'GS': { name: 'Goldman Sachs Group', sector: 'Financials', industry: 'Investment Banking' },
+  'MS': { name: 'Morgan Stanley', sector: 'Financials', industry: 'Investment Banking' },
+  'AXP': { name: 'American Express', sector: 'Financials', industry: 'Credit Services' },
+  'BLK': { name: 'BlackRock Inc.', sector: 'Financials', industry: 'Asset Management' },
+  'C': { name: 'Citigroup Inc.', sector: 'Financials', industry: 'Banks' },
+  'WFC': { name: 'Wells Fargo & Company', sector: 'Financials', industry: 'Banks' },
+  'BMY': { name: 'Bristol-Myers Squibb', sector: 'Healthcare', industry: 'Pharmaceuticals' },
+  'AMGN': { name: 'Amgen Inc.', sector: 'Healthcare', industry: 'Biotechnology' },
+  'GILD': { name: 'Gilead Sciences', sector: 'Healthcare', industry: 'Biotechnology' },
+  'MDT': { name: 'Medtronic plc', sector: 'Healthcare', industry: 'Medical Devices' },
+  'DHR': { name: 'Danaher Corporation', sector: 'Healthcare', industry: 'Life Sciences' },
+  'SYK': { name: 'Stryker Corporation', sector: 'Healthcare', industry: 'Medical Devices' },
+  'CVS': { name: 'CVS Health Corporation', sector: 'Healthcare', industry: 'Healthcare Services' },
+  'COP': { name: 'ConocoPhillips', sector: 'Energy', industry: 'Oil & Gas' },
+  'SLB': { name: 'Schlumberger Limited', sector: 'Energy', industry: 'Oil Services' },
+  'EOG': { name: 'EOG Resources Inc.', sector: 'Energy', industry: 'Oil & Gas' },
+  'NEE': { name: 'NextEra Energy Inc.', sector: 'Utilities', industry: 'Utilities' },
+  'DUK': { name: 'Duke Energy Corporation', sector: 'Utilities', industry: 'Utilities' },
+  'SO': { name: 'Southern Company', sector: 'Utilities', industry: 'Utilities' },
+  'D': { name: 'Dominion Energy Inc.', sector: 'Utilities', industry: 'Utilities' },
+  'UNP': { name: 'Union Pacific Corporation', sector: 'Industrials', industry: 'Railroads' },
+  'HON': { name: 'Honeywell International', sector: 'Industrials', industry: 'Aerospace' },
+  'RTX': { name: 'RTX Corporation', sector: 'Industrials', industry: 'Aerospace' },
+  'BA': { name: 'Boeing Company', sector: 'Industrials', industry: 'Aerospace' },
+  'CAT': { name: 'Caterpillar Inc.', sector: 'Industrials', industry: 'Machinery' },
+  'GE': { name: 'General Electric', sector: 'Industrials', industry: 'Aerospace' },
+  'MMM': { name: '3M Company', sector: 'Industrials', industry: 'Diversified' },
+  'LMT': { name: 'Lockheed Martin', sector: 'Industrials', industry: 'Defense' },
+  'AMT': { name: 'American Tower Corp.', sector: 'Real Estate', industry: 'REITs' },
+  'PLD': { name: 'Prologis Inc.', sector: 'Real Estate', industry: 'REITs' },
+  'CCI': { name: 'Crown Castle Inc.', sector: 'Real Estate', industry: 'REITs' },
+  'SPG': { name: 'Simon Property Group', sector: 'Real Estate', industry: 'REITs' },
+  'LIN': { name: 'Linde plc', sector: 'Materials', industry: 'Chemicals' },
+  'APD': { name: 'Air Products', sector: 'Materials', industry: 'Chemicals' },
+  'SHW': { name: 'Sherwin-Williams', sector: 'Materials', industry: 'Chemicals' },
+  'FCX': { name: 'Freeport-McMoRan', sector: 'Materials', industry: 'Mining' },
+  'T': { name: 'AT&T Inc.', sector: 'Communication Services', industry: 'Telecom' },
+  'VZ': { name: 'Verizon Communications', sector: 'Communication Services', industry: 'Telecom' },
+  'CMCSA': { name: 'Comcast Corporation', sector: 'Communication Services', industry: 'Media' },
+  'TMUS': { name: 'T-Mobile US Inc.', sector: 'Communication Services', industry: 'Telecom' },
+  'PYPL': { name: 'PayPal Holdings Inc.', sector: 'Financials', industry: 'Payments' },
+  'UBER': { name: 'Uber Technologies', sector: 'Technology', industry: 'Ride-Sharing' },
+  'SQ': { name: 'Block Inc.', sector: 'Financials', industry: 'Payments' },
+  'SHOP': { name: 'Shopify Inc.', sector: 'Technology', industry: 'E-Commerce' },
+  'SNOW': { name: 'Snowflake Inc.', sector: 'Technology', industry: 'Cloud Computing' },
+  'CRWD': { name: 'CrowdStrike Holdings', sector: 'Technology', industry: 'Cybersecurity' },
+  'ZS': { name: 'Zscaler Inc.', sector: 'Technology', industry: 'Cybersecurity' },
+  'DDOG': { name: 'Datadog Inc.', sector: 'Technology', industry: 'Software' },
+  'NET': { name: 'Cloudflare Inc.', sector: 'Technology', industry: 'Cloud Computing' },
+  'MDB': { name: 'MongoDB Inc.', sector: 'Technology', industry: 'Database' },
+  'PANW': { name: 'Palo Alto Networks', sector: 'Technology', industry: 'Cybersecurity' },
+  'MRNA': { name: 'Moderna Inc.', sector: 'Healthcare', industry: 'Biotechnology' },
+  'BNTX': { name: 'BioNTech SE', sector: 'Healthcare', industry: 'Biotechnology' },
+  'ABNB': { name: 'Airbnb Inc.', sector: 'Consumer Discretionary', industry: 'Travel' },
+  'COIN': { name: 'Coinbase Global', sector: 'Financials', industry: 'Cryptocurrency' },
+  'RIVN': { name: 'Rivian Automotive', sector: 'Consumer Discretionary', industry: 'Electric Vehicles' },
+  'LCID': { name: 'Lucid Group Inc.', sector: 'Consumer Discretionary', industry: 'Electric Vehicles' },
+  'PLTR': { name: 'Palantir Technologies', sector: 'Technology', industry: 'Software' },
+}
+
+/**
+ * Fetch helper for Finnhub API
+ */
+async function rateLimitedFetch(url: string): Promise<Response> {
+  return fetch(url)
+}
+
+/**
+ * Fetch stock quote from Finnhub
+ */
+async function fetchFinnhubQuote(symbol: string): Promise<FinnhubQuote | null> {
+  try {
+    const response = await rateLimitedFetch(
+      `${FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
+    )
+    if (!response.ok) return null
+    const data = await response.json()
+    // Finnhub returns {c: 0, d: null, dp: null, ...} for invalid symbols
+    if (data.c === 0 && data.d === null) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetch company financials/metrics from Finnhub
+ */
+async function fetchFinnhubMetrics(symbol: string): Promise<FinnhubMetrics | null> {
+  try {
+    const response = await rateLimitedFetch(
+      `${FINNHUB_BASE_URL}/stock/metric?symbol=${symbol}&metric=all&token=${FINNHUB_API_KEY}`
+    )
+    if (!response.ok) return null
+    return response.json()
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Check if localStorage cache is valid
+ */
+function getCachedStocks(): Stock[] | null {
+  if (typeof window === 'undefined') return null
+
+  try {
+    const cached = localStorage.getItem(CACHE_KEY)
+    if (!cached) return null
+
+    const data: CachedStockData = JSON.parse(cached)
+    const now = Date.now()
+
+    // Check if cache is still valid (24 hours)
+    if (now - data.timestamp < CACHE_DURATION_MS) {
+      console.log('[Finnhub] Using cached data, age:', Math.round((now - data.timestamp) / 1000 / 60), 'minutes')
+      return data.stocks
+    }
+
+    console.log('[Finnhub] Cache expired')
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Save stocks to localStorage cache
+ */
+function setCachedStocks(stocks: Stock[]): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    const data: CachedStockData = {
+      stocks,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data))
+    console.log('[Finnhub] Cached', stocks.length, 'stocks')
+  } catch (e) {
+    console.warn('[Finnhub] Failed to cache stocks:', e)
+  }
+}
+
+/**
+ * Main function to fetch stocks using Finnhub API
+ * Features:
+ * - 24h localStorage caching
+ * - Rate-limited API calls (60/min limit)
+ * - Batches up to 1000 stocks
+ * - Falls back to mock data on failure
+ */
+export async function fetchStocks(): Promise<Stock[]> {
+  console.log('[Finnhub] fetchStocks() called, API key:', FINNHUB_API_KEY ? 'SET' : 'MISSING')
+
+  // Check API key
+  if (!FINNHUB_API_KEY) {
+    console.warn('[Finnhub] No API key found, using mock data')
+    return generateMockStocks()
+  }
+
+  // Check cache first (browser only)
+  const cached = getCachedStocks()
+  if (cached && cached.length > 0) {
+    return cached
+  }
+
+  console.log('[Finnhub] Fetching live data for', TOP_STOCK_SYMBOLS.length, 'stocks...')
+
+  const stocks: Stock[] = []
+  const batchSize = 10 // Process in smaller batches (10 stocks = 20 API calls)
+  const delayBetweenBatches = 25000 // 25 second delay between batches to stay under 60 calls/min
+
+  try {
+    // Get unique symbols
+    const uniqueSymbols = [...new Set(TOP_STOCK_SYMBOLS)]
+
+    for (let i = 0; i < uniqueSymbols.length; i += batchSize) {
+      const batch = uniqueSymbols.slice(i, i + batchSize)
+
+      // Fetch quotes and metrics in parallel within batch
+      const batchPromises = batch.map(async (symbol) => {
+        const [quote, metrics] = await Promise.all([
+          fetchFinnhubQuote(symbol),
+          fetchFinnhubMetrics(symbol)
+        ])
+
+        if (!quote || quote.c === 0) return null
+
+        const metadata = STOCK_METADATA[symbol] || {
+          name: symbol,
+          sector: 'Unknown',
+          industry: ''
+        }
+
+        const pe = metrics?.metric?.peTTM ?? metrics?.metric?.peBasicExclExtraTTM ?? null
+        const eps = metrics?.metric?.epsTTM ?? metrics?.metric?.epsBasicExclExtraItemsTTM ?? null
+        const marketCap = metrics?.metric?.marketCapitalization
+          ? metrics.metric.marketCapitalization * 1e6 // Convert from millions
+          : null
+        const ebitda = metrics?.metric?.ebitdaTTM
+          ? metrics.metric.ebitdaTTM * 1e6 // Convert from millions
+          : null
+        const dividendYield = metrics?.metric?.dividendYieldIndicatedAnnual ?? null
+        const yearHigh = metrics?.metric?.['52WeekHigh'] ?? quote.h * 1.1
+        const yearLow = metrics?.metric?.['52WeekLow'] ?? quote.l * 0.9
+
+        return {
+          symbol,
+          name: metadata.name,
+          price: quote.c,
+          change: quote.d || 0,
+          changesPercentage: quote.dp || 0,
+          marketCap: marketCap || (quote.c * 1e9), // Estimate if missing
+          pe,
+          eps,
+          ebitda,
+          dividendYield,
+          sector: metadata.sector,
+          industry: metadata.industry,
+          exchange: 'US', // Finnhub doesn't return exchange in quote
+          volume: 0, // Quote endpoint doesn't include volume
+          avgVolume: 0,
+          dayHigh: quote.h,
+          dayLow: quote.l,
+          yearHigh,
+          yearLow,
+        } as Stock
+      })
+
+      const batchResults = await Promise.all(batchPromises)
+      const validStocks = batchResults.filter((s): s is Stock => s !== null)
+      stocks.push(...validStocks)
+
+      console.log(`[Finnhub] Processed batch ${Math.floor(i / batchSize) + 1}, total: ${stocks.length} stocks`)
+
+      // Rate limit between batches
+      if (i + batchSize < uniqueSymbols.length) {
+        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches))
+      }
+    }
+
+    if (stocks.length === 0) {
+      console.warn('[Finnhub] No stocks fetched, falling back to mock data')
+      return generateMockStocks()
+    }
+
+    // Sort by market cap (largest first)
+    stocks.sort((a, b) => b.marketCap - a.marketCap)
+
+    // Cache the results
+    setCachedStocks(stocks)
+
+    console.log('[Finnhub] Successfully fetched', stocks.length, 'stocks')
+    return stocks
+
+  } catch (error) {
+    console.error('[Finnhub] Error fetching stocks:', error)
+    console.warn('[Finnhub] Falling back to mock data')
+    return generateMockStocks()
+  }
+}
+
+/**
+ * Clear the Finnhub stock cache (useful for forcing refresh)
+ */
+export function clearFinnhubCache(): void {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(CACHE_KEY)
+  console.log('[Finnhub] Cache cleared')
+}
 
 // Stock screener response type
 interface ScreenerStock {

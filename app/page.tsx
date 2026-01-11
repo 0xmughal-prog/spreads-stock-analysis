@@ -12,7 +12,7 @@ import StockOfTheWeek from './components/StockOfTheWeek'
 import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import { Stock, FilterState, TabType } from '@/lib/types'
-import { generateMockStocks } from '@/lib/api'
+import { fetchStocks, generateMockStocks, clearFinnhubCache } from '@/lib/api'
 import { getCache, setCache, CACHE_KEYS, getCacheInfo, clearCache } from '@/lib/cache'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -45,40 +45,22 @@ export default function Home() {
     hasDividend: null,
   })
 
-  // Load stocks with caching
+  // Load stocks with caching (uses Finnhub API with 24h localStorage cache)
   useEffect(() => {
     const loadStocks = async () => {
       setLoading(true)
       try {
-        // Check localStorage cache first
-        const cacheInfo = getCacheInfo(CACHE_KEYS.STOCKS)
+        // fetchStocks() handles its own 24h localStorage caching internally
+        // It will return cached data if valid, otherwise fetch from Finnhub
+        const data = await fetchStocks()
+        setStocks(data)
 
-        if (cacheInfo.isValid) {
-          const cachedData = getCache<Stock[]>(CACHE_KEYS.STOCKS)
-          if (cachedData && cachedData.length > 0) {
-            setStocks(cachedData)
-            setDataSource('cache')
-            setCacheHoursRemaining(cacheInfo.hoursRemaining)
-            setLoading(false)
-            return
-          }
-        }
-
-        // Fetch from API if no valid cache
-        const response = await fetch('/api/stocks')
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch stocks')
-        }
-
-        const result: StockApiResponse = await response.json()
-        setStocks(result.data)
-        setDataSource(result.source)
-
-        // Cache the data for 24 hours (only if from API, not mock)
-        if (result.source === 'api') {
-          setCache(CACHE_KEYS.STOCKS, result.data)
+        // Check if we got live data or mock data
+        if (data.length > 100) {
+          setDataSource('api')
           setCacheHoursRemaining(24)
+        } else {
+          setDataSource('mock')
         }
       } catch (error) {
         console.error('Failed to load stocks:', error)
@@ -98,21 +80,17 @@ export default function Home() {
   const handleRefreshData = useCallback(async () => {
     setLoading(true)
     clearCache(CACHE_KEYS.STOCKS)
+    clearFinnhubCache() // Clear Finnhub's 24h cache
 
     try {
-      const response = await fetch('/api/stocks')
+      const data = await fetchStocks()
+      setStocks(data)
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch stocks')
-      }
-
-      const result: StockApiResponse = await response.json()
-      setStocks(result.data)
-      setDataSource(result.source)
-
-      if (result.source === 'api') {
-        setCache(CACHE_KEYS.STOCKS, result.data)
+      if (data.length > 100) {
+        setDataSource('api')
         setCacheHoursRemaining(24)
+      } else {
+        setDataSource('mock')
       }
     } catch (error) {
       console.error('Failed to refresh stocks:', error)
