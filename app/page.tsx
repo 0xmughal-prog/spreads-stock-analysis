@@ -12,8 +12,6 @@ import StockOfTheWeek from './components/StockOfTheWeek'
 import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import { Stock, FilterState, TabType } from '@/lib/types'
-import { fetchStocks, generateMockStocks, clearFinnhubCache } from '@/lib/api'
-import { getCache, setCache, CACHE_KEYS, getCacheInfo, clearCache } from '@/lib/cache'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
 const COMPARE_STORAGE_KEY = 'spreads_compare'
@@ -45,28 +43,27 @@ export default function Home() {
     hasDividend: null,
   })
 
-  // Load stocks with caching (uses Finnhub API with 24h localStorage cache)
+  // Load stocks from server API (uses Vercel KV caching)
   useEffect(() => {
     const loadStocks = async () => {
       setLoading(true)
       try {
-        // fetchStocks() handles its own 24h localStorage caching internally
-        // It will return cached data if valid, otherwise fetch from Finnhub
-        const data = await fetchStocks()
-        setStocks(data)
+        const response = await fetch('/api/stocks')
+        if (!response.ok) throw new Error('Failed to fetch stocks')
 
-        // Check if we got live data or mock data
-        if (data.length > 100) {
-          setDataSource('api')
-          setCacheHoursRemaining(24)
+        const result = await response.json()
+        setStocks(result.data)
+        setDataSource(result.source === 'mock' ? 'mock' : 'api')
+
+        if (result.cached && result.cacheAge) {
+          // Cache has 5-min TTL, show remaining time
+          const remainingMinutes = Math.max(0, Math.ceil((300 - result.cacheAge) / 60))
+          setCacheHoursRemaining(remainingMinutes)
         } else {
-          setDataSource('mock')
+          setCacheHoursRemaining(5)
         }
       } catch (error) {
         console.error('Failed to load stocks:', error)
-        // Fall back to mock data on error
-        const data = generateMockStocks()
-        setStocks(data)
         setDataSource('mock')
       } finally {
         setLoading(false)
@@ -79,19 +76,16 @@ export default function Home() {
   // Function to force refresh data
   const handleRefreshData = useCallback(async () => {
     setLoading(true)
-    clearCache(CACHE_KEYS.STOCKS)
-    clearFinnhubCache() // Clear Finnhub's 24h cache
 
     try {
-      const data = await fetchStocks()
-      setStocks(data)
+      // Add cache-busting query param to force fresh fetch
+      const response = await fetch('/api/stocks?refresh=' + Date.now())
+      if (!response.ok) throw new Error('Failed to fetch stocks')
 
-      if (data.length > 100) {
-        setDataSource('api')
-        setCacheHoursRemaining(24)
-      } else {
-        setDataSource('mock')
-      }
+      const result = await response.json()
+      setStocks(result.data)
+      setDataSource(result.source === 'mock' ? 'mock' : 'api')
+      setCacheHoursRemaining(5)
     } catch (error) {
       console.error('Failed to refresh stocks:', error)
     } finally {
@@ -211,8 +205,8 @@ export default function Home() {
                         backgroundColor: dataSource === 'api' ? 'rgb(34, 197, 94)' :
                           dataSource === 'cache' ? 'rgb(59, 130, 246)' : 'rgb(234, 179, 8)',
                       }} />
-                    {dataSource === 'api' ? 'Live Data' :
-                      dataSource === 'cache' ? `Cached (${cacheHoursRemaining}h remaining)` : 'Demo Data'}
+                    {dataSource === 'api' ? `Live Data (${cacheHoursRemaining}m cache)` :
+                      dataSource === 'cache' ? `Cached (${cacheHoursRemaining}m remaining)` : 'Demo Data'}
                   </div>
                   {/* Refresh button */}
                   <button
@@ -375,10 +369,10 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between">
               <div className="mb-4 md:mb-0">
                 <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Spreads Stock Analysis</h3>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>S&P 500 Financial Dashboard</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>S&P 100 Financial Dashboard</p>
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Data provided by Financial Modeling Prep
+                Data provided by Finnhub
               </div>
             </div>
           </div>
