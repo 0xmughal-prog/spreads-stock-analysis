@@ -7,6 +7,7 @@ import { Stock } from '@/lib/types'
 import { getStockBySymbol } from '@/lib/api'
 import { formatCurrency, formatLargeCurrency, formatPercent } from '@/lib/utils'
 import { useTheme } from '@/app/context/ThemeContext'
+import PEHistoricalModal from '@/app/components/PEHistoricalModal'
 
 declare global {
   interface Window {
@@ -107,6 +108,8 @@ export default function StockDetailPage() {
   const [stock, setStock] = useState<Stock | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [avgPE5Y, setAvgPE5Y] = useState<number | null>(null)
+  const [peModalOpen, setPeModalOpen] = useState(false)
 
   useEffect(() => {
     const fetchStock = async () => {
@@ -131,6 +134,23 @@ export default function StockDetailPage() {
     }
 
     fetchStock()
+  }, [symbol])
+
+  // Fetch 5Y average P/E
+  useEffect(() => {
+    const fetchAvgPE = async () => {
+      if (!symbol) return
+      try {
+        const response = await fetch(`/api/historical-pe/${symbol}`)
+        if (response.ok) {
+          const data = await response.json()
+          setAvgPE5Y(data.avgPE5Y)
+        }
+      } catch (err) {
+        console.error('Error fetching avg P/E:', err)
+      }
+    }
+    fetchAvgPE()
   }, [symbol])
 
   if (loading) {
@@ -287,12 +307,27 @@ export default function StockDetailPage() {
                     {formatLargeCurrency(stock.marketCap)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">P/E Ratio</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {stock.pe?.toFixed(2) || 'N/A'}
+                <button
+                  onClick={() => setPeModalOpen(true)}
+                  className="flex justify-between items-center w-full group hover:bg-gray-50 dark:hover:bg-gray-800/50 -mx-2 px-2 py-1 rounded-lg transition-colors"
+                >
+                  <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    P/E Ratio
+                    <svg className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </span>
-                </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {stock.pe?.toFixed(2) || 'N/A'}
+                    </span>
+                    {avgPE5Y && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-spreads-tan/20 text-spreads-tan font-medium">
+                        5Y Avg: {avgPE5Y.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
+                </button>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500 dark:text-gray-400">EPS</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -402,6 +437,14 @@ export default function StockDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* P/E Historical Modal */}
+      <PEHistoricalModal
+        isOpen={peModalOpen}
+        onClose={() => setPeModalOpen(false)}
+        symbol={stock.symbol}
+        companyName={stock.name}
+      />
     </div>
   )
 }
