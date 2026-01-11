@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { EarningsEvent } from '@/lib/types'
 import { getEarningsCalendar } from '@/lib/api'
 import { formatLargeCurrency } from '@/lib/utils'
@@ -54,9 +55,17 @@ function formatWeekRange(start: Date, end: Date): string {
 }
 
 export default function EarningsCalendar({ onSelectEarnings }: EarningsCalendarProps) {
+  const router = useRouter()
   const [weekOffset, setWeekOffset] = useState(0)
   const [earnings, setEarnings] = useState<EarningsEvent[]>([])
   const [loading, setLoading] = useState(true)
+
+  const handleStockClick = (event: EarningsEvent) => {
+    // Navigate to stock detail page
+    router.push(`/stock/${event.symbol}`)
+    // Also call the optional callback if provided
+    onSelectEarnings?.(event)
+  }
 
   const weekData = useMemo(() => getWeekDates(weekOffset), [weekOffset])
 
@@ -264,12 +273,15 @@ export default function EarningsCalendar({ onSelectEarnings }: EarningsCalendarP
                     dayEarnings.map((event) => (
                       <div
                         key={`${event.symbol}-${event.date}`}
-                        className="earnings-card"
-                        onClick={() => onSelectEarnings?.(event)}
+                        className="earnings-card group"
+                        onClick={() => handleStockClick(event)}
                       >
                         <div className="flex items-start justify-between mb-1">
-                          <span className="font-bold text-gray-900 dark:text-gray-100">
+                          <span className="font-bold text-gray-900 dark:text-gray-100 group-hover:text-spreads-green dark:group-hover:text-green-400 transition-colors flex items-center gap-1">
                             {event.symbol}
+                            <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
                           </span>
                           <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${getTimeBadgeColor(event.time)}`}>
                             {getTimeLabel(event.time)}

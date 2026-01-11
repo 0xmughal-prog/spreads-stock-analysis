@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Stock, SortField, SortDirection, FilterState } from '@/lib/types'
 import { formatCurrency, formatLargeCurrency, formatPercent, formatRatio } from '@/lib/utils'
 
@@ -11,7 +12,6 @@ interface StockTableProps {
   compareList: string[]
   onToggleWatchlist: (symbol: string) => void
   onToggleCompare: (symbol: string) => void
-  onSelectStock: (stock: Stock) => void
 }
 
 const ITEMS_PER_PAGE = 50
@@ -23,8 +23,8 @@ export default function StockTable({
   compareList,
   onToggleWatchlist,
   onToggleCompare,
-  onSelectStock,
 }: StockTableProps) {
+  const router = useRouter()
   const [sortField, setSortField] = useState<SortField>('marketCap')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [currentPage, setCurrentPage] = useState(1)
@@ -195,7 +195,7 @@ export default function StockTable({
                 key={stock.symbol}
                 className="cursor-pointer transition-colors table-row-animated"
                 style={{ borderBottom: '1px solid var(--border-color)' }}
-                onClick={() => onSelectStock(stock)}
+                onClick={() => router.push(`/stock/${stock.symbol}`)}
               >
                 <td className="table-cell">
                   <button

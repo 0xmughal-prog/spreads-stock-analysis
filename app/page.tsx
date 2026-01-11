@@ -235,7 +235,6 @@ export default function Home() {
                   compareList={compareList}
                   onToggleWatchlist={handleToggleWatchlist}
                   onToggleCompare={handleToggleCompare}
-                  onSelectStock={handleSelectStock}
                 />
               </div>
               <div className="lg:col-span-1">
@@ -369,7 +368,7 @@ export default function Home() {
             <div className="flex flex-col md:flex-row items-center justify-between">
               <div className="mb-4 md:mb-0">
                 <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Spreads Stock Analysis</h3>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>S&P 100 Financial Dashboard</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>S&P 500 Financial Dashboard</p>
               </div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 Data provided by Finnhub

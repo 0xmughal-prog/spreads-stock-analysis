@@ -400,10 +400,21 @@ h1, h2, h3, h4, h5, h6 {
 .earnings-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-left: 3px solid var(--spreads-green);
+  padding-left: calc(0.75rem - 3px);
 }
 
 .dark .earnings-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-left-color: #22c55e;
+}
+
+/* Mobile touch feedback for earnings cards */
+@media (hover: none) {
+  .earnings-card:active {
+    transform: scale(0.98);
+    background-color: var(--border-color);
+  }
 }
 
 /* Responsive table container */

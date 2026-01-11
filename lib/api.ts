@@ -474,6 +474,68 @@ export function clearFinnhubCache(): void {
   console.log('[Finnhub] Cache cleared')
 }
 
+/**
+ * Fetch data for a single stock symbol using Finnhub API
+ */
+export async function getStockBySymbol(symbol: string): Promise<Stock | null> {
+  if (!FINNHUB_API_KEY) {
+    console.warn('[Finnhub] No API key found')
+    return null
+  }
+
+  try {
+    const [quote, metrics] = await Promise.all([
+      fetchFinnhubQuote(symbol),
+      fetchFinnhubMetrics(symbol)
+    ])
+
+    if (!quote || quote.c === 0) return null
+
+    const metadata = STOCK_METADATA[symbol] || {
+      name: symbol,
+      sector: 'Unknown',
+      industry: ''
+    }
+
+    const pe = metrics?.metric?.peTTM ?? metrics?.metric?.peBasicExclExtraTTM ?? null
+    const eps = metrics?.metric?.epsTTM ?? metrics?.metric?.epsBasicExclExtraItemsTTM ?? null
+    const marketCap = metrics?.metric?.marketCapitalization
+      ? metrics.metric.marketCapitalization * 1e6
+      : null
+    const ebitda = metrics?.metric?.ebitdaTTM
+      ? metrics.metric.ebitdaTTM * 1e6
+      : null
+    const dividendYield = metrics?.metric?.dividendYieldIndicatedAnnual ?? null
+    const yearHigh = metrics?.metric?.['52WeekHigh'] ?? quote.h * 1.1
+    const yearLow = metrics?.metric?.['52WeekLow'] ?? quote.l * 0.9
+
+    return {
+      symbol,
+      name: metadata.name,
+      price: quote.c,
+      change: quote.d || 0,
+      changesPercentage: quote.dp || 0,
+      marketCap: marketCap || (quote.c * 1e9),
+      pe,
+      eps,
+      ebitda,
+      dividendYield,
+      sector: metadata.sector,
+      industry: metadata.industry,
+      exchange: 'US',
+      volume: 0,
+      avgVolume: 0,
+      dayHigh: quote.h,
+      dayLow: quote.l,
+      yearHigh,
+      yearLow,
+    }
+  } catch (error) {
+    console.error('[Finnhub] Error fetching stock:', symbol, error)
+    return null
+  }
+}
+
 // Stock screener response type
 interface ScreenerStock {
   symbol: string
@@ -759,39 +821,133 @@ export async function getSP500StockData(): Promise<Stock[]> {
   return stocks
 }
 
-// Fetch earnings calendar from FMP API
+// S&P 500 constituents list (as of 2024)
+// Used to filter earnings calendar to only show major companies
+const SP500_SYMBOLS = new Set([
+  // Technology
+  'AAPL', 'MSFT', 'NVDA', 'AVGO', 'ORCL', 'CRM', 'ADBE', 'AMD', 'CSCO', 'ACN',
+  'IBM', 'INTC', 'INTU', 'NOW', 'QCOM', 'TXN', 'AMAT', 'ADI', 'LRCX', 'MU',
+  'KLAC', 'SNPS', 'CDNS', 'MCHP', 'FTNT', 'PANW', 'ANET', 'HPQ', 'HPE', 'KEYS',
+  'IT', 'MPWR', 'EPAM', 'CTSH', 'AKAM', 'FFIV', 'JNPR', 'NTAP', 'CDW', 'ZBRA',
+  'TER', 'SWKS', 'QRVO', 'ON', 'NXPI', 'MRVL', 'GEN', 'ENPH', 'SEDG', 'WDC',
+  'STX', 'PAYC', 'PAYX', 'FSLR', 'PTC', 'ANSS',
+  // Communication Services
+  'GOOGL', 'GOOG', 'META', 'NFLX', 'DIS', 'CMCSA', 'T', 'VZ', 'TMUS', 'CHTR',
+  'EA', 'TTWO', 'WBD', 'PARA', 'FOX', 'FOXA', 'NWS', 'NWSA', 'LYV', 'OMC',
+  'IPG', 'MTCH',
+  // Consumer Discretionary
+  'AMZN', 'TSLA', 'HD', 'MCD', 'NKE', 'LOW', 'SBUX', 'TJX', 'BKNG', 'MAR',
+  'HLT', 'CMG', 'ORLY', 'AZO', 'ROST', 'YUM', 'DHI', 'LEN', 'GM', 'F',
+  'APTV', 'POOL', 'BBY', 'DRI', 'GRMN', 'GPC', 'ULTA', 'EBAY', 'ETSY', 'LVS',
+  'WYNN', 'MGM', 'CZR', 'RCL', 'CCL', 'NCLH', 'HAS', 'DG', 'DLTR', 'KMX',
+  'BWA', 'PHM', 'NVR', 'WHR', 'TPR', 'RL', 'PVH', 'VFC', 'EXPE', 'LKQ',
+  // Consumer Staples
+  'PG', 'KO', 'PEP', 'COST', 'WMT', 'PM', 'MO', 'MDLZ', 'CL', 'KMB',
+  'GIS', 'K', 'HSY', 'HRL', 'SJM', 'CPB', 'CAG', 'MKC', 'CHD', 'CLX',
+  'EL', 'STZ', 'TAP', 'BF.B', 'KR', 'SYY', 'WBA', 'TGT', 'DG', 'DLTR',
+  'KHC', 'ADM', 'BG', 'TSN', 'MNST',
+  // Energy
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'PXD',
+  'DVN', 'HAL', 'BKR', 'FANG', 'HES', 'CTRA', 'MRO', 'APA', 'OKE', 'WMB',
+  'KMI', 'TRGP', 'LNG',
+  // Financials
+  'BRK.B', 'JPM', 'V', 'MA', 'BAC', 'WFC', 'GS', 'MS', 'AXP', 'BLK',
+  'C', 'SCHW', 'CB', 'MMC', 'PGR', 'AON', 'CME', 'ICE', 'MCO', 'SPGI',
+  'MET', 'PRU', 'AIG', 'AFL', 'ALL', 'TRV', 'CINF', 'L', 'GL', 'AIZ',
+  'BK', 'STT', 'NTRS', 'USB', 'PNC', 'TFC', 'COF', 'DFS', 'SYF', 'AMP',
+  'FITB', 'KEY', 'CFG', 'RF', 'HBAN', 'MTB', 'ZION', 'FRC', 'CMA', 'SIVB',
+  'MSCI', 'CBOE', 'NDAQ', 'FDS', 'RE', 'WRB', 'RJF', 'MKTX',
+  // Healthcare
+  'UNH', 'JNJ', 'LLY', 'MRK', 'ABBV', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY',
+  'AMGN', 'GILD', 'VRTX', 'ISRG', 'REGN', 'MDT', 'SYK', 'BSX', 'BDX', 'ZBH',
+  'EW', 'IDXX', 'IQV', 'DXCM', 'HCA', 'CI', 'ELV', 'CVS', 'HUM', 'CNC',
+  'MOH', 'MCK', 'CAH', 'ABC', 'A', 'WAT', 'MTD', 'HOLX', 'ALGN', 'TECH',
+  'TFX', 'XRAY', 'RMD', 'BAX', 'ZTS', 'BIIB', 'MRNA', 'ILMN', 'INCY', 'VTRS',
+  'CTLT', 'DGX', 'LH',
+  // Industrials
+  'UNP', 'HON', 'RTX', 'BA', 'CAT', 'GE', 'DE', 'LMT', 'UPS', 'MMM',
+  'NOC', 'GD', 'CSX', 'NSC', 'WM', 'ETN', 'ITW', 'EMR', 'PH', 'ROK',
+  'CMI', 'DOV', 'PCAR', 'FAST', 'ODFL', 'JCI', 'CARR', 'OTIS', 'TT', 'XYL',
+  'SWK', 'AME', 'FTV', 'GNRC', 'IR', 'IEX', 'PNR', 'AOS', 'VRSK', 'CTAS',
+  'CPRT', 'PAYX', 'LDOS', 'J', 'FDX', 'LUV', 'DAL', 'UAL', 'AAL', 'ALK',
+  'JBHT', 'EXPD', 'CHRW', 'WAB', 'GWW', 'PWR', 'HUBB', 'ALLE', 'NDSN', 'TDG',
+  'HWM', 'HII', 'TXT', 'LHX', 'AXON', 'BLDR', 'WSC',
+  // Materials
+  'LIN', 'APD', 'SHW', 'FCX', 'NEM', 'DD', 'DOW', 'ECL', 'PPG', 'NUE',
+  'VMC', 'MLM', 'CTVA', 'FMC', 'IFF', 'CE', 'ALB', 'CF', 'MOS', 'EMN',
+  'IP', 'PKG', 'SEE', 'AVY', 'BLL', 'AMCR', 'WRK', 'BALL',
+  // Real Estate
+  'AMT', 'PLD', 'CCI', 'EQIX', 'SPG', 'PSA', 'WELL', 'DLR', 'O', 'AVB',
+  'EQR', 'VTR', 'ESS', 'MAA', 'UDR', 'ARE', 'SBAC', 'BXP', 'KIM', 'REG',
+  'VNO', 'HST', 'PEAK', 'CBRE', 'WY', 'INVH', 'EXR', 'CPT', 'IRM', 'FRT',
+  // Utilities
+  'NEE', 'DUK', 'SO', 'D', 'AEP', 'SRE', 'EXC', 'XEL', 'ED', 'PEG',
+  'WEC', 'ES', 'AWK', 'EIX', 'DTE', 'FE', 'PPL', 'AES', 'ETR', 'CMS',
+  'CNP', 'ATO', 'EVRG', 'NI', 'LNT', 'NRG', 'PNW', 'CEG',
+])
+
+// Finnhub Earnings Calendar Response Type
+interface FinnhubEarningsEvent {
+  date: string
+  epsActual: number | null
+  epsEstimate: number | null
+  hour: string // 'bmo' | 'amc' | 'dmh'
+  quarter: number
+  revenueActual: number | null
+  revenueEstimate: number | null
+  symbol: string
+  year: number
+}
+
+// Fetch earnings calendar from Finnhub API
 export async function getEarningsCalendar(from: string, to: string): Promise<EarningsEvent[]> {
-  const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || process.env.FMP_API_KEY
-  if (!apiKey) {
-    console.warn('FMP_API_KEY is not set, using mock earnings data')
+  if (!FINNHUB_API_KEY) {
+    console.warn('FINNHUB_API_KEY is not set, using mock earnings data')
     return generateMockEarnings(from, to)
   }
 
   try {
     const response = await fetch(
-      `${FMP_BASE_URL}/earning_calendar?from=${from}&to=${to}&apikey=${apiKey}`,
+      `${FINNHUB_BASE_URL}/calendar/earnings?from=${from}&to=${to}&token=${FINNHUB_API_KEY}`,
       { next: { revalidate: 3600 } }
     )
 
     if (!response.ok) {
-      console.warn('Failed to fetch earnings calendar, using mock data')
+      console.warn('Failed to fetch earnings calendar from Finnhub, using mock data')
       return generateMockEarnings(from, to)
     }
 
     const data = await response.json()
-    return data.map((item: Record<string, unknown>) => ({
-      symbol: item.symbol,
-      name: item.symbol, // FMP doesn't always include name
-      date: item.date,
-      time: item.time || '--',
-      epsEstimate: item.epsEstimated ?? null,
-      epsActual: item.eps ?? null,
-      revenueEstimate: item.revenueEstimated ?? null,
-      revenueActual: item.revenue ?? null,
-      fiscalQuarterEnding: item.fiscalDateEnding || '',
-    }))
+    const events: FinnhubEarningsEvent[] = data.earningsCalendar || []
+
+    // Filter to only include S&P 500 companies and map to our EarningsEvent type
+    return events
+      .filter((item) => SP500_SYMBOLS.has(item.symbol))
+      .map((item) => {
+        // Get company name from metadata if available
+        const metadata = STOCK_METADATA[item.symbol]
+        const name = metadata?.name || item.symbol
+
+        // Map Finnhub hour format to our time format
+        let time: 'bmo' | 'amc' | 'dmh' | '--' = '--'
+        if (item.hour === 'bmo') time = 'bmo'
+        else if (item.hour === 'amc') time = 'amc'
+        else if (item.hour === 'dmh') time = 'dmh'
+
+        return {
+          symbol: item.symbol,
+          name,
+          date: item.date,
+          time,
+          epsEstimate: item.epsEstimate,
+          epsActual: item.epsActual,
+          revenueEstimate: item.revenueEstimate,
+          revenueActual: item.revenueActual,
+          fiscalQuarterEnding: `Q${item.quarter} ${item.year}`,
+        }
+      })
   } catch (error) {
-    console.error('Error fetching earnings calendar:', error)
+    console.error('Error fetching earnings calendar from Finnhub:', error)
     return generateMockEarnings(from, to)
   }
 }
