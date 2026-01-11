@@ -1,14 +1,19 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Stock } from '@/lib/types'
 import { formatRatio, formatLargeCurrency } from '@/lib/utils'
+import PEHistoricalModal from './PEHistoricalModal'
 
 interface PERatioRankingProps {
   stocks: Stock[]
   onSelectStock: (stock: Stock) => void
   onToggleWatchlist: (symbol: string) => void
   watchlist: string[]
+}
+
+interface HistoricalPEData {
+  avgPE5Y: number | null
 }
 
 type CategoryFilter = 'all' | 'undervalued' | 'fair' | 'overvalued'
@@ -29,6 +34,47 @@ export default function PERatioRanking({
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [historicalPEData, setHistoricalPEData] = useState<Record<string, HistoricalPEData>>({})
+  const [modalStock, setModalStock] = useState<Stock | null>(null)
+
+  // Fetch 5Y avg P/E for visible stocks
+  useEffect(() => {
+    const fetchHistoricalPE = async (symbols: string[]) => {
+      const newData: Record<string, HistoricalPEData> = {}
+
+      // Fetch in batches of 5 to avoid overwhelming the API
+      for (let i = 0; i < symbols.length; i += 5) {
+        const batch = symbols.slice(i, i + 5)
+        const promises = batch.map(async (symbol) => {
+          if (historicalPEData[symbol]) return // Already fetched
+          try {
+            const response = await fetch(`/api/historical-pe/${symbol}`)
+            if (response.ok) {
+              const data = await response.json()
+              newData[symbol] = { avgPE5Y: data.avgPE5Y }
+            }
+          } catch (err) {
+            console.error(`Error fetching P/E for ${symbol}:`, err)
+          }
+        })
+        await Promise.all(promises)
+      }
+
+      if (Object.keys(newData).length > 0) {
+        setHistoricalPEData(prev => ({ ...prev, ...newData }))
+      }
+    }
+
+    // Get symbols of stocks with valid P/E that we haven't fetched yet
+    const symbolsToFetch = stocks
+      .filter(s => s.pe !== null && s.pe > 0 && !historicalPEData[s.symbol])
+      .map(s => s.symbol)
+      .slice(0, 20) // Limit initial fetch to top 20
+
+    if (symbolsToFetch.length > 0) {
+      fetchHistoricalPE(symbolsToFetch)
+    }
+  }, [stocks])
 
   const categorizeStock = (pe: number | null): 'undervalued' | 'fair' | 'overvalued' | 'n/a' => {
     if (pe === null || pe <= 0) return 'n/a'
@@ -229,11 +275,33 @@ export default function PERatioRanking({
                 </div>
 
                 {/* P/E Ratio */}
-                <div className="text-right">
-                  <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {stock.pe !== null && stock.pe > 0 ? formatRatio(stock.pe) : 'N/A'}
+                <div className="text-right flex items-center gap-2">
+                  <div>
+                    <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      {stock.pe !== null && stock.pe > 0 ? formatRatio(stock.pe) : 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 justify-end">
+                      <span>P/E Ratio</span>
+                      {historicalPEData[stock.symbol]?.avgPE5Y && (
+                        <span className="text-spreads-tan">
+                          (5Y: {historicalPEData[stock.symbol].avgPE5Y?.toFixed(1)})
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">P/E Ratio</div>
+                  {/* Chart Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setModalStock(stock)
+                    }}
+                    className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-spreads-tan/20 dark:hover:bg-spreads-tan/20 transition-colors group/chart"
+                    title="View P/E History"
+                  >
+                    <svg className="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover/chart:text-spreads-tan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                  </button>
                 </div>
 
                 {/* Market Cap */}
@@ -296,6 +364,16 @@ export default function PERatioRanking({
           </div>
         )}
       </div>
+
+      {/* P/E Historical Modal */}
+      {modalStock && (
+        <PEHistoricalModal
+          isOpen={!!modalStock}
+          onClose={() => setModalStock(null)}
+          symbol={modalStock.symbol}
+          companyName={modalStock.name}
+        />
+      )}
     </div>
   )
 }
