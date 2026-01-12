@@ -11,6 +11,7 @@ import StockModal from './components/StockModal'
 import StockOfTheWeek from './components/StockOfTheWeek'
 import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
+import RevenueGrowth from './components/RevenueGrowth'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -261,6 +262,17 @@ export default function Home() {
 
       case 'earnings':
         return <EarningsCalendar key="earnings" />
+
+      case 'revenue-growth':
+        return (
+          <RevenueGrowth
+            key="revenue-growth"
+            stocks={stocks}
+            onSelectStock={handleSelectStock}
+            onToggleWatchlist={handleToggleWatchlist}
+            watchlist={watchlist}
+          />
+        )
 
       case 'watchlist':
         return (

@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Stock } from '@/lib/types'
-import { getStockBySymbol } from '@/lib/api'
 import { formatCurrency, formatLargeCurrency, formatPercent } from '@/lib/utils'
 import { useTheme } from '@/app/context/ThemeContext'
 import PEHistoricalModal from '@/app/components/PEHistoricalModal'
@@ -119,9 +118,16 @@ export default function StockDetailPage() {
       setError(null)
 
       try {
-        const data = await getStockBySymbol(symbol)
-        if (data) {
-          setStock(data)
+        // Use cached /api/stocks endpoint instead of direct Finnhub calls
+        const response = await fetch('/api/stocks')
+        if (!response.ok) {
+          throw new Error('Failed to fetch stocks')
+        }
+        const result = await response.json()
+        const stockData = result.data?.find((s: Stock) => s.symbol === symbol)
+
+        if (stockData) {
+          setStock(stockData)
         } else {
           setError('Stock not found')
         }

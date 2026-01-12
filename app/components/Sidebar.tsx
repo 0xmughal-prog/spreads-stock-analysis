@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { TabType } from '@/lib/types'
+import UserButton from './UserButton'
 
 interface SidebarProps {
   activeTab: TabType
@@ -12,7 +13,26 @@ interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void
 }
 
-const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+interface TabItem {
+  id: TabType
+  label: string
+  icon: React.ReactNode
+}
+
+interface FolderItem {
+  id: string
+  label: string
+  icon: React.ReactNode
+  children: TabItem[]
+}
+
+type NavItem = TabItem | FolderItem
+
+const isFolder = (item: NavItem): item is FolderItem => {
+  return 'children' in item
+}
+
+const navItems: NavItem[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
@@ -24,14 +44,36 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: 'pe-ratio',
-    label: 'P/E Rankings',
+    id: 'metrics',
+    label: 'Metrics',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
           d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     ),
+    children: [
+      {
+        id: 'pe-ratio',
+        label: 'P/E Rankings',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+        ),
+      },
+      {
+        id: 'revenue-growth',
+        label: 'Revenue Growth',
+        icon: (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        ),
+      },
+    ],
   },
   {
     id: 'earnings',
@@ -67,7 +109,8 @@ const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
 
 export default function Sidebar({ activeTab, onTabChange, watchlistCount, compareCount, onCollapseChange }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
-  const [hoveredTab, setHoveredTab] = useState<TabType | null>(null)
+  const [hoveredTab, setHoveredTab] = useState<TabType | string | null>(null)
+  const [expandedFolders, setExpandedFolders] = useState<string[]>(['metrics'])
   const { theme, toggleTheme } = useTheme()
 
   const handleCollapse = () => {
@@ -76,10 +119,138 @@ export default function Sidebar({ activeTab, onTabChange, watchlistCount, compar
     onCollapseChange?.(newState)
   }
 
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev =>
+      prev.includes(folderId)
+        ? prev.filter(id => id !== folderId)
+        : [...prev, folderId]
+    )
+  }
+
   const getBadgeCount = (tabId: TabType): number | null => {
     if (tabId === 'watchlist' && watchlistCount > 0) return watchlistCount
     if (tabId === 'compare' && compareCount > 0) return compareCount
     return null
+  }
+
+  const isChildActive = (folder: FolderItem): boolean => {
+    return folder.children.some(child => child.id === activeTab)
+  }
+
+  const renderNavItem = (item: NavItem, index: number) => {
+    if (isFolder(item)) {
+      const isExpanded = expandedFolders.includes(item.id)
+      const hasActiveChild = isChildActive(item)
+      const isHovered = hoveredTab === item.id
+
+      return (
+        <div key={item.id}>
+          <button
+            onClick={() => toggleFolder(item.id)}
+            onMouseEnter={() => setHoveredTab(item.id)}
+            onMouseLeave={() => setHoveredTab(null)}
+            className={`sidebar-tab w-full text-left group ${hasActiveChild ? 'active' : 'text-white'}`}
+            style={{ animationDelay: `${index * 50}ms` }}
+          >
+            <span className="tab-indicator" />
+            <span className={`transition-transform duration-200 ${isHovered && !hasActiveChild ? 'scale-110' : ''}`}>
+              {item.icon}
+            </span>
+            <span
+              className={`flex-1 whitespace-nowrap transition-all duration-300 ${
+                isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+              }`}
+            >
+              {item.label}
+            </span>
+            {!isCollapsed && (
+              <svg
+                className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
+
+          {/* Folder children */}
+          <div
+            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+              isExpanded && !isCollapsed ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'
+            }`}
+          >
+            <div className="ml-4 mt-1 space-y-1 border-l border-white/20 pl-2">
+              {item.children.map((child, childIndex) => {
+                const isActive = activeTab === child.id
+                const isChildHovered = hoveredTab === child.id
+
+                return (
+                  <button
+                    key={child.id}
+                    onClick={() => onTabChange(child.id)}
+                    onMouseEnter={() => setHoveredTab(child.id)}
+                    onMouseLeave={() => setHoveredTab(null)}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                    style={{ animationDelay: `${(index + childIndex + 1) * 50}ms` }}
+                  >
+                    <span className={`transition-transform duration-200 ${isChildHovered && !isActive ? 'scale-110' : ''}`}>
+                      {child.icon}
+                    </span>
+                    <span className="whitespace-nowrap">{child.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Regular tab item
+    const isActive = activeTab === item.id
+    const isHovered = hoveredTab === item.id
+    const badgeCount = getBadgeCount(item.id as TabType)
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => onTabChange(item.id as TabType)}
+        onMouseEnter={() => setHoveredTab(item.id)}
+        onMouseLeave={() => setHoveredTab(null)}
+        className={`sidebar-tab w-full text-left group ${isActive ? 'active' : 'text-white'}`}
+        style={{ animationDelay: `${index * 50}ms` }}
+      >
+        <span className="tab-indicator" />
+        <span className={`transition-transform duration-200 ${isHovered && !isActive ? 'scale-110' : ''}`}>
+          {item.icon}
+        </span>
+        <span
+          className={`flex-1 whitespace-nowrap transition-all duration-300 ${
+            isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
+          }`}
+        >
+          {item.label}
+        </span>
+        {badgeCount && !isCollapsed && (
+          <span
+            className={`px-2 py-0.5 text-xs rounded-full transition-all duration-200 ${
+              isActive ? 'bg-gray-900 text-white' : 'bg-white/20 text-white'
+            }`}
+          >
+            {badgeCount}
+          </span>
+        )}
+        {badgeCount && isCollapsed && (
+          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
+        )}
+      </button>
+    )
   }
 
   return (
@@ -119,52 +290,7 @@ export default function Sidebar({ activeTab, onTabChange, watchlistCount, compar
 
       {/* Navigation Tabs */}
       <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto">
-        {tabs.map((tab, index) => {
-          const isActive = activeTab === tab.id
-          const isHovered = hoveredTab === tab.id
-          const badgeCount = getBadgeCount(tab.id)
-
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              onMouseEnter={() => setHoveredTab(tab.id)}
-              onMouseLeave={() => setHoveredTab(null)}
-              className={`sidebar-tab w-full text-left group ${isActive ? 'active' : 'text-white'}`}
-              style={{
-                animationDelay: `${index * 50}ms`,
-              }}
-            >
-              <span className="tab-indicator" />
-
-              <span className={`transition-transform duration-200 ${isHovered && !isActive ? 'scale-110' : ''}`}>
-                {tab.icon}
-              </span>
-
-              <span
-                className={`flex-1 whitespace-nowrap transition-all duration-300 ${
-                  isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'
-                }`}
-              >
-                {tab.label}
-              </span>
-
-              {badgeCount && !isCollapsed && (
-                <span
-                  className={`px-2 py-0.5 text-xs rounded-full transition-all duration-200 ${
-                    isActive ? 'bg-gray-900 text-white' : 'bg-white/20 text-white'
-                  }`}
-                >
-                  {badgeCount}
-                </span>
-              )}
-
-              {badgeCount && isCollapsed && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </button>
-          )
-        })}
+        {navItems.map((item, index) => renderNavItem(item, index))}
       </nav>
 
       {/* Bottom Section */}
@@ -194,6 +320,9 @@ export default function Sidebar({ activeTab, onTabChange, watchlistCount, compar
             {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
           </span>
         </button>
+
+        {/* User Button */}
+        <UserButton collapsed={isCollapsed} />
       </div>
     </aside>
   )

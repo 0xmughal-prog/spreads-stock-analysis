@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Orbitron, Montserrat } from 'next/font/google'
 import { ThemeProvider } from './context/ThemeContext'
+import SessionProvider from './providers/SessionProvider'
 import './globals.css'
 
 const orbitron = Orbitron({
@@ -28,9 +29,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${orbitron.variable} ${montserrat.variable}`} suppressHydrationWarning>
       <body className="min-h-screen font-body">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <SessionProvider>
+          <ThemeProvider>
+            {children}
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   )
