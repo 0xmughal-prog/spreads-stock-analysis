@@ -245,7 +245,7 @@ export interface EarningsCalendarResponse {
   earningsCalendar: EarningsEvent[]
 }
 
-export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards'
+export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards' | 'dividends'
 
 // Reddit Sentiment Types
 export interface RedditPost {
@@ -308,4 +308,23 @@ export interface TrendingRedditStock {
   totalMentions: number
   topSubreddit: string
   change24h: number | null
+}
+
+// Dividend Types
+export interface DividendDataPoint {
+  year: number
+  annualDividend: number
+  yoyGrowth: number | null
+}
+
+export interface DividendData {
+  symbol: string
+  currentYield: number
+  currentDividendAnnual: number
+  avgDividend5Y: number | null
+  dividendGrowthRate5Y: number | null
+  historicalData: DividendDataPoint[]
+  dataPoints: number
+  source: 'estimated'
+  timestamp: number
 }

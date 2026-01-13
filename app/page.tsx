@@ -12,6 +12,7 @@ import StockHeroSection from './components/StockHeroSection'
 import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import RevenueGrowth from './components/RevenueGrowth'
+import DividendsRanking from './components/DividendsRanking'
 import SocialMetrics from './components/SocialMetrics'
 import PointsRewards from './components/PointsRewards'
 import { Stock, FilterState, TabType } from '@/lib/types'
@@ -269,6 +270,17 @@ export default function Home() {
         return (
           <RevenueGrowth
             key="revenue-growth"
+            stocks={stocks}
+            onSelectStock={handleSelectStock}
+            onToggleWatchlist={handleToggleWatchlist}
+            watchlist={watchlist}
+          />
+        )
+
+      case 'dividends':
+        return (
+          <DividendsRanking
+            key="dividends"
             stocks={stocks}
             onSelectStock={handleSelectStock}
             onToggleWatchlist={handleToggleWatchlist}
