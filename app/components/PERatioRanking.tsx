@@ -16,14 +16,7 @@ interface HistoricalPEData {
   avgPE5Y: number | null
 }
 
-type CategoryFilter = 'all' | 'undervalued' | 'fair' | 'overvalued'
-
-// P/E ratio thresholds for categorization
-const PE_THRESHOLDS = {
-  undervalued: 15,
-  fair: 25,
-  overvalued: 25,
-}
+type PERangeFilter = 'all' | 'under20' | '20to30' | 'over30'
 
 export default function PERatioRanking({
   stocks,
@@ -31,11 +24,31 @@ export default function PERatioRanking({
   onToggleWatchlist,
   watchlist,
 }: PERatioRankingProps) {
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  const [peRangeFilter, setPeRangeFilter] = useState<PERangeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [historicalPEData, setHistoricalPEData] = useState<Record<string, HistoricalPEData>>({})
   const [modalStock, setModalStock] = useState<Stock | null>(null)
+  const [sp500PE, setSp500PE] = useState<number | null>(null)
+  const [sp500Loading, setSp500Loading] = useState(true)
+
+  // Fetch S&P 500 P/E ratio
+  useEffect(() => {
+    const fetchSP500PE = async () => {
+      try {
+        const response = await fetch('/api/sp500-pe')
+        if (response.ok) {
+          const data = await response.json()
+          setSp500PE(data.pe)
+        }
+      } catch (err) {
+        console.error('Error fetching S&P 500 P/E:', err)
+      } finally {
+        setSp500Loading(false)
+      }
+    }
+    fetchSP500PE()
+  }, [])
 
   // Fetch 5Y avg P/E for visible stocks with rate limiting
   useEffect(() => {
@@ -84,11 +97,11 @@ export default function PERatioRanking({
     }
   }, [stocks])
 
-  const categorizeStock = (pe: number | null): 'undervalued' | 'fair' | 'overvalued' | 'n/a' => {
+  const getPERange = (pe: number | null): PERangeFilter | 'n/a' => {
     if (pe === null || pe <= 0) return 'n/a'
-    if (pe < PE_THRESHOLDS.undervalued) return 'undervalued'
-    if (pe <= PE_THRESHOLDS.fair) return 'fair'
-    return 'overvalued'
+    if (pe < 20) return 'under20'
+    if (pe <= 30) return '20to30'
+    return 'over30'
   }
 
   const filteredAndSortedStocks = useMemo(() => {
@@ -105,14 +118,14 @@ export default function PERatioRanking({
           }
         }
 
-        // Filter by category
-        if (categoryFilter !== 'all') {
-          const category = categorizeStock(stock.pe)
-          if (category !== categoryFilter) return false
+        // Filter by P/E range
+        if (peRangeFilter !== 'all') {
+          const range = getPERange(stock.pe)
+          if (range !== peRangeFilter) return false
         }
 
-        // Only show stocks with valid P/E
-        if (categoryFilter !== 'all' && (stock.pe === null || stock.pe <= 0)) {
+        // Only show stocks with valid P/E when filtering
+        if (peRangeFilter !== 'all' && (stock.pe === null || stock.pe <= 0)) {
           return false
         }
 
@@ -125,57 +138,83 @@ export default function PERatioRanking({
 
         return sortDirection === 'asc' ? a.pe - b.pe : b.pe - a.pe
       })
-  }, [stocks, categoryFilter, searchQuery, sortDirection])
+  }, [stocks, peRangeFilter, searchQuery, sortDirection])
 
-  const categoryCounts = useMemo(() => {
-    const counts = { undervalued: 0, fair: 0, overvalued: 0, all: 0 }
+  const rangeCounts = useMemo(() => {
+    const counts = { under20: 0, '20to30': 0, over30: 0, all: 0 }
     stocks.forEach((stock) => {
       if (stock.pe !== null && stock.pe > 0) {
         counts.all++
-        const category = categorizeStock(stock.pe)
-        if (category !== 'n/a') counts[category]++
+        const range = getPERange(stock.pe)
+        if (range !== 'n/a' && range !== 'all') counts[range]++
       }
     })
     return counts
   }, [stocks])
 
-  const getCategoryColor = (category: 'undervalued' | 'fair' | 'overvalued' | 'n/a') => {
-    switch (category) {
-      case 'undervalued':
-        return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
-      case 'fair':
-        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
-      case 'overvalued':
-        return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
-      default:
-        return 'text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20'
-    }
-  }
-
-  const getCategoryBadgeColor = (category: CategoryFilter, isActive: boolean) => {
+  const getFilterBadgeColor = (filter: PERangeFilter, isActive: boolean) => {
     if (!isActive) return 'bg-white/5 text-gray-400 border-gray-600'
-    switch (category) {
-      case 'undervalued':
+    switch (filter) {
+      case 'under20':
         return 'bg-green-500/20 text-green-400 border-green-500'
-      case 'fair':
+      case '20to30':
         return 'bg-yellow-500/20 text-yellow-400 border-yellow-500'
-      case 'overvalued':
+      case 'over30':
         return 'bg-red-500/20 text-red-400 border-red-500'
       default:
         return 'bg-white/10 text-white border-white/30'
     }
   }
 
+  const getFilterLabel = (filter: PERangeFilter) => {
+    switch (filter) {
+      case 'under20':
+        return 'Under 20'
+      case '20to30':
+        return '20-30'
+      case 'over30':
+        return 'Over 30'
+      default:
+        return 'All'
+    }
+  }
+
   return (
     <div className="content-panel">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 font-heading">
-          P/E Ratio Rankings
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400">
-          Stocks ranked by Price-to-Earnings ratio with valuation categories
-        </p>
+      {/* Header with S&P 500 Widget */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2 font-heading">
+            P/E Ratio Rankings
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Stocks ranked by Price-to-Earnings ratio
+          </p>
+        </div>
+
+        {/* S&P 500 P/E Widget */}
+        <div className="card p-4 lg:min-w-[200px]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">S&P 500 P/E</p>
+              {sp500Loading ? (
+                <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              ) : (
+                <p className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {sp500PE ? `${sp500PE.toFixed(1)}x` : 'N/A'}
+                </p>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Compare stocks to market average
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
@@ -208,47 +247,31 @@ export default function PERatioRanking({
           </button>
         </div>
 
-        {/* Category Filters */}
+        {/* P/E Range Filters */}
         <div className="flex flex-wrap gap-2 mt-4">
-          {(['all', 'undervalued', 'fair', 'overvalued'] as CategoryFilter[]).map((category) => (
+          {(['all', 'under20', '20to30', 'over30'] as PERangeFilter[]).map((filter) => (
             <button
-              key={category}
-              onClick={() => setCategoryFilter(category)}
-              className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium text-sm ${getCategoryBadgeColor(
-                category,
-                categoryFilter === category
+              key={filter}
+              onClick={() => setPeRangeFilter(filter)}
+              className={`px-4 py-2 rounded-lg border transition-all duration-200 font-medium text-sm ${getFilterBadgeColor(
+                filter,
+                peRangeFilter === filter
               )}`}
             >
-              {category === 'all' ? 'All' : category.charAt(0).toUpperCase() + category.slice(1)}
+              {getFilterLabel(filter)}
               <span className="ml-2 opacity-70">
-                ({category === 'all' ? categoryCounts.all : categoryCounts[category]})
+                ({filter === 'all' ? rangeCounts.all : rangeCounts[filter]})
               </span>
             </button>
           ))}
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-green-500" />
-            <span>Undervalued (P/E &lt; 15)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-yellow-500" />
-            <span>Fair Value (P/E 15-25)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500" />
-            <span>Overvalued (P/E &gt; 25)</span>
-          </div>
         </div>
       </div>
 
       {/* Stock List */}
       <div className="space-y-2">
         {filteredAndSortedStocks.map((stock, index) => {
-          const category = categorizeStock(stock.pe)
           const isInWatchlist = watchlist.includes(stock.symbol)
+          const peRange = getPERange(stock.pe)
 
           return (
             <div
@@ -269,13 +292,17 @@ export default function PERatioRanking({
                     <span className="font-bold text-gray-900 dark:text-gray-100">
                       {stock.symbol}
                     </span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${getCategoryColor(
-                        category
-                      )}`}
-                    >
-                      {category === 'n/a' ? 'N/A' : category.charAt(0).toUpperCase() + category.slice(1)}
-                    </span>
+                    {sp500PE && stock.pe && stock.pe > 0 && (
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          stock.pe < sp500PE
+                            ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+                            : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+                        }`}
+                      >
+                        {stock.pe < sp500PE ? 'Below S&P' : 'Above S&P'}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                     {stock.name}

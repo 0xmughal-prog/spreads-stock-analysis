@@ -8,10 +8,11 @@ import SectorChart from './components/SectorChart'
 import Watchlist from './components/Watchlist'
 import ComparisonTool from './components/ComparisonTool'
 import StockModal from './components/StockModal'
-import StockOfTheWeek from './components/StockOfTheWeek'
+import StockHeroSection from './components/StockHeroSection'
 import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import RevenueGrowth from './components/RevenueGrowth'
+import SocialMetrics from './components/SocialMetrics'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -179,8 +180,8 @@ export default function Home() {
       case 'dashboard':
         return (
           <div key="dashboard" className="content-panel">
-            {/* Stock of the Week Section */}
-            <StockOfTheWeek stocks={stocks} onSelectStock={handleSelectStock} />
+            {/* Hero Section - Top Gainers, Trending, Biggest Dips */}
+            <StockHeroSection stocks={stocks} />
 
             <div className="mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -267,6 +268,17 @@ export default function Home() {
         return (
           <RevenueGrowth
             key="revenue-growth"
+            stocks={stocks}
+            onSelectStock={handleSelectStock}
+            onToggleWatchlist={handleToggleWatchlist}
+            watchlist={watchlist}
+          />
+        )
+
+      case 'social-metrics':
+        return (
+          <SocialMetrics
+            key="social-metrics"
             stocks={stocks}
             onSelectStock={handleSelectStock}
             onToggleWatchlist={handleToggleWatchlist}

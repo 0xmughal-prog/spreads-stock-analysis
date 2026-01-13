@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Cell,
 } from 'recharts'
 import { useTheme } from '@/app/context/ThemeContext'
 
@@ -248,7 +249,7 @@ export default function PEHistoricalModal({
 
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
+                  <BarChart
                     data={filteredData}
                     margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
                   >
@@ -282,6 +283,7 @@ export default function PEHistoricalModal({
                         month: 'long',
                         year: 'numeric',
                       })}
+                      cursor={{ fill: isDark ? '#374151' : '#f3f4f6', opacity: 0.3 }}
                     />
                     {avgPE && (
                       <ReferenceLine
@@ -296,20 +298,18 @@ export default function PEHistoricalModal({
                         }}
                       />
                     )}
-                    <Line
-                      type="monotone"
+                    <Bar
                       dataKey="pe"
-                      stroke="#bba998"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{
-                        r: 6,
-                        fill: '#bba998',
-                        stroke: isDark ? '#1a1d21' : '#ffffff',
-                        strokeWidth: 2,
-                      }}
-                    />
-                  </LineChart>
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {filteredData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.pe < 20 ? (isDark ? '#22c55e' : '#16a34a') : entry.pe <= 30 ? '#bba998' : (isDark ? '#ef4444' : '#dc2626')}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
 

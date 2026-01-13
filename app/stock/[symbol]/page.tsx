@@ -7,6 +7,7 @@ import { Stock } from '@/lib/types'
 import { formatCurrency, formatLargeCurrency, formatPercent } from '@/lib/utils'
 import { useTheme } from '@/app/context/ThemeContext'
 import PEHistoricalModal from '@/app/components/PEHistoricalModal'
+import RedditSentimentCard from '@/app/components/RedditSentimentCard'
 
 declare global {
   interface Window {
@@ -400,6 +401,9 @@ export default function StockDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Reddit Sentiment */}
+            <RedditSentimentCard symbol={symbol} />
 
             {/* Company Info */}
             <div className="card p-5">

@@ -244,4 +244,67 @@ export interface EarningsCalendarResponse {
   earningsCalendar: EarningsEvent[]
 }
 
-export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth'
+export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics'
+
+// Reddit Sentiment Types
+export interface RedditPost {
+  id: string
+  title: string
+  score: number
+  num_comments: number
+  subreddit: string
+  permalink: string
+  created_utc: number
+  selftext?: string
+}
+
+export interface RedditAward {
+  name: string
+  count: number
+}
+
+export interface SubredditSentiment {
+  subreddit: string
+  mentionCount: number
+  totalUpvotes: number
+  totalComments: number
+  totalAwards: number
+  sentimentScore: number
+  topPost: {
+    title: string
+    score: number
+    permalink: string
+  } | null
+}
+
+export interface RedditSentimentData {
+  symbol: string
+  period: '24h' | '7d'
+  redditScore: number
+  scoreChange: number | null
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+  totalMentions: number
+  totalUpvotes: number
+  totalComments: number
+  totalAwards: number
+  subredditBreakdown: SubredditSentiment[]
+  topPosts: RedditPost[]
+  trendingRank: number | null
+  fetchedAt: number
+}
+
+export interface CachedRedditData {
+  data24h: RedditSentimentData
+  data7d: RedditSentimentData
+  timestamp: number
+}
+
+export interface TrendingRedditStock {
+  symbol: string
+  name: string
+  redditScore: number
+  sentiment: 'bullish' | 'bearish' | 'neutral'
+  totalMentions: number
+  topSubreddit: string
+  change24h: number | null
+}

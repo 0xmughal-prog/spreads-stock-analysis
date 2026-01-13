@@ -96,3 +96,45 @@ export const SECTOR_COLORS: Record<string, string> = {
   'Communication Services': '#003318',
   'Utilities': '#002211',
 }
+
+// Reddit Score Utilities
+export function formatRedditScore(score: number): { text: string; color: string; bgColor: string } {
+  if (score >= 80) return { text: 'Very High', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30' }
+  if (score >= 60) return { text: 'High', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' }
+  if (score >= 40) return { text: 'Moderate', color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900/30' }
+  if (score >= 20) return { text: 'Low', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900/30' }
+  return { text: 'Very Low', color: 'text-gray-500 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-800' }
+}
+
+export function formatMentions(count: number): string {
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`
+  if (count >= 1000) return `${(count / 1000).toFixed(1)}K`
+  return count.toString()
+}
+
+export function formatRelativeTime(timestamp: number): string {
+  const seconds = Math.floor(Date.now() / 1000 - timestamp)
+  if (seconds < 60) return 'just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
+  return `${Math.floor(seconds / 604800)}w ago`
+}
+
+export function getSentimentColor(sentiment: 'bullish' | 'bearish' | 'neutral'): { text: string; bg: string; icon: string } {
+  switch (sentiment) {
+    case 'bullish':
+      return { text: 'text-green-600 dark:text-green-400', bg: 'bg-green-100 dark:bg-green-900/30', icon: '↑' }
+    case 'bearish':
+      return { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/30', icon: '↓' }
+    default:
+      return { text: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-100 dark:bg-gray-800', icon: '→' }
+  }
+}
+
+export const SUBREDDIT_COLORS: Record<string, string> = {
+  'wallstreetbets': '#FF4500',
+  'stocks': '#0079D3',
+  'investing': '#46A508',
+  'options': '#7B68EE',
+}

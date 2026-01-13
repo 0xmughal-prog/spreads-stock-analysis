@@ -11,6 +11,10 @@ const publicRoutes = [
   "/api/debug-auth", // Temporary - remove after debugging
   "/api/historical-pe",
   "/api/revenue-growth",
+  "/api/reddit-sentiment",
+  "/api/reddit-trending",
+  "/api/trending",
+  "/api/sp500-pe",
 ]
 
 // Admin-only routes
