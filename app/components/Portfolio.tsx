@@ -292,10 +292,10 @@ export default function Portfolio({ stocks, onSelectStock }: PortfolioProps) {
                   return (
                     <tr
                       key={holding.id}
-                      className="table-cell border-b hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      className="border-b hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                       style={{ borderColor: 'var(--border-color)' }}
                     >
-                      <td className="table-cell">
+                      <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-3">
                           <div>
                             <div className="font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -307,34 +307,34 @@ export default function Portfolio({ stocks, onSelectStock }: PortfolioProps) {
                           </div>
                         </div>
                       </td>
-                      <td className="table-cell text-right font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <td className="px-4 py-3 text-sm text-right font-medium" style={{ color: 'var(--text-primary)' }}>
                         {holding.shares.toLocaleString()}
                       </td>
-                      <td className="table-cell text-right" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--text-secondary)' }}>
                         {formatCurrency(holding.purchasePrice)}
                       </td>
-                      <td className="table-cell text-right font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <td className="px-4 py-3 text-sm text-right font-medium" style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(currentPrice)}
                       </td>
-                      <td className="table-cell text-right font-bold" style={{ color: 'var(--text-primary)' }}>
+                      <td className="px-4 py-3 text-sm text-right font-bold" style={{ color: 'var(--text-primary)' }}>
                         {formatCurrency(currentValue)}
                       </td>
                       <td
-                        className="table-cell text-right font-medium"
+                        className="px-4 py-3 text-sm text-right font-medium"
                         style={{ color: gainLoss >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)' }}
                       >
                         {formatCurrency(gainLoss)}
                       </td>
                       <td
-                        className="table-cell text-right font-medium"
+                        className="px-4 py-3 text-sm text-right font-medium"
                         style={{ color: gainLossPercent >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)' }}
                       >
                         {formatPercent(gainLossPercent)}
                       </td>
-                      <td className="table-cell text-right" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-4 py-3 text-sm text-right" style={{ color: 'var(--text-secondary)' }}>
                         {allocation.toFixed(2)}%
                       </td>
-                      <td className="table-cell text-center">
+                      <td className="px-4 py-3 text-sm text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => handleEdit(holding)}
