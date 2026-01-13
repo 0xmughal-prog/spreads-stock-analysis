@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/refresh-reddit",
-      "schedule": "0 */2 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
