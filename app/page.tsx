@@ -15,6 +15,7 @@ import RevenueGrowth from './components/RevenueGrowth'
 import DividendsRanking from './components/DividendsRanking'
 import SocialMetrics from './components/SocialMetrics'
 import PointsRewards from './components/PointsRewards'
+import CompoundInterestCalculator from './components/CompoundInterestCalculator'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -336,6 +337,13 @@ export default function Home() {
               onAddStock={handleAddToCompare}
             />
           </div>
+        )
+
+      case 'compound-interest':
+        return (
+          <CompoundInterestCalculator
+            key="compound-interest"
+          />
         )
 
       case 'points-rewards':

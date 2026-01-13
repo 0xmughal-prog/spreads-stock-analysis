@@ -245,7 +245,31 @@ export interface EarningsCalendarResponse {
   earningsCalendar: EarningsEvent[]
 }
 
-export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards' | 'dividends'
+export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards' | 'dividends' | 'compound-interest'
+
+// Compound Interest Calculator Types
+export interface CompoundInterestCalculation {
+  id: string
+  name: string
+  currency: 'USD' | 'GBP' | 'EUR' | 'BTC'
+  initialBalance: number
+  annualReturn: number
+  compoundFrequency: 'annually' | 'semi-annually' | 'quarterly' | 'monthly' | 'daily'
+  years: number
+  months: number
+  depositAmount: number
+  depositFrequency: 'annually' | 'semi-annually' | 'quarterly' | 'monthly'
+  createdAt: number
+}
+
+export interface YearlyBreakdown {
+  year: number
+  startingBalance: number
+  deposits: number
+  interest: number
+  endingBalance: number
+  cumulativeInterest: number
+}
 
 // Reddit Sentiment Types
 export interface RedditPost {

@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { kv } from "@vercel/kv"
+import { CompoundInterestCalculation } from '@/lib/types'
 
 // User interface for Vercel KV storage
 export interface StoredUser {
@@ -17,6 +18,8 @@ export interface StoredUser {
   lastClaimDate?: string | null  // ISO date string of last claim (UTC), e.g., "2026-01-13"
   streakDays?: number            // Consecutive days claimed (resets to 0 if day missed)
   gridState?: boolean[]          // 49 booleans for 7x7 grid (true = filled, false = empty)
+  // Compound interest calculations
+  compoundCalculations?: CompoundInterestCalculation[]  // Saved investment scenarios
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
