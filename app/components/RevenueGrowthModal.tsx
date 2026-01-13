@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   BarChart,
   Bar,
@@ -82,9 +82,35 @@ export default function RevenueGrowthModal({
 
   if (!isOpen) return null
 
-  const filteredData = data?.historicalData
-    ? [...data.historicalData].reverse().slice(-timeRangeQuarters[selectedRange])
-    : []
+  // Group data by year and show all 4 quarters per year
+  const filteredData = useMemo(() => {
+    if (!data?.historicalData) return []
+
+    // Get data for selected range
+    const reversed = [...data.historicalData].reverse()
+    const rangeData = reversed.slice(-timeRangeQuarters[selectedRange])
+
+    // Group by year to ensure we get all quarters
+    const yearMap = new Map<number, QuarterlyRevenue[]>()
+    rangeData.forEach(item => {
+      if (!yearMap.has(item.year)) {
+        yearMap.set(item.year, [])
+      }
+      yearMap.get(item.year)!.push(item)
+    })
+
+    // Flatten and sort by year and quarter
+    const result: QuarterlyRevenue[] = []
+    Array.from(yearMap.entries())
+      .sort((a, b) => a[0] - b[0]) // Sort by year
+      .forEach(([year, quarters]) => {
+        // Sort quarters within each year
+        const sortedQuarters = quarters.sort((a, b) => a.quarterNum - b.quarterNum)
+        result.push(...sortedQuarters)
+      })
+
+    return result
+  }, [data, selectedRange])
 
   const isDark = theme === 'dark'
 

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Stock } from '@/lib/types'
 import { formatRatio, formatLargeCurrency } from '@/lib/utils'
 import PEHistoricalModal from './PEHistoricalModal'
+import StockLogo from './StockLogo'
 
 interface PERatioRankingProps {
   stocks: Stock[]
@@ -285,6 +286,9 @@ export default function PERatioRanking({
                 <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center font-bold text-gray-500 dark:text-gray-400">
                   {index + 1}
                 </div>
+
+                {/* Company Logo */}
+                <StockLogo symbol={stock.symbol} logo={stock.logo} size="md" />
 
                 {/* Stock Info */}
                 <div className="flex-1 min-w-0">

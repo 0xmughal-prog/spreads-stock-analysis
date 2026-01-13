@@ -245,7 +245,7 @@ export interface EarningsCalendarResponse {
   earningsCalendar: EarningsEvent[]
 }
 
-export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards' | 'dividends' | 'compound-interest'
+export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards' | 'dividends' | 'compound-interest' | 'portfolio'
 
 // Compound Interest Calculator Types
 export interface CompoundInterestCalculation {
@@ -351,4 +351,24 @@ export interface DividendData {
   dataPoints: number
   source: 'estimated'
   timestamp: number
+}
+
+// Portfolio Types
+export interface PortfolioHolding {
+  id: string
+  symbol: string
+  name: string
+  shares: number
+  purchasePrice: number
+  purchaseDate: string
+  totalCost: number
+  addedAt: number
+}
+
+export interface PortfolioData {
+  holdings: PortfolioHolding[]
+  totalValue: number
+  totalCost: number
+  totalGainLoss: number
+  totalGainLossPercent: number
 }

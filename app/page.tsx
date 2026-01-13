@@ -16,6 +16,7 @@ import DividendsRanking from './components/DividendsRanking'
 import SocialMetrics from './components/SocialMetrics'
 import PointsRewards from './components/PointsRewards'
 import CompoundInterestCalculator from './components/CompoundInterestCalculator'
+import Portfolio from './components/Portfolio'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -266,6 +267,15 @@ export default function Home() {
 
       case 'earnings':
         return <EarningsCalendar key="earnings" />
+
+      case 'portfolio':
+        return (
+          <Portfolio
+            key="portfolio"
+            stocks={stocks}
+            onSelectStock={handleSelectStock}
+          />
+        )
 
       case 'revenue-growth':
         return (
