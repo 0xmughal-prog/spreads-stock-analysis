@@ -372,3 +372,29 @@ export interface PortfolioData {
   totalGainLoss: number
   totalGainLossPercent: number
 }
+
+// Portfolio historical snapshot
+export interface PortfolioSnapshot {
+  date: string // YYYY-MM-DD format
+  totalValue: number
+  totalCost: number
+  gainLoss: number
+  gainLossPercent: number
+}
+
+// Cached portfolio history
+export interface PortfolioHistory {
+  userEmail: string
+  snapshots: PortfolioSnapshot[]
+  lastCalculated: number
+  holdingsHash: string // Hash for change detection
+}
+
+// Time range selector options
+export type PortfolioTimeRange = '1W' | '1M' | '3M' | '1Y' | 'All'
+
+// Historical price data for batch operations
+export interface HistoricalPriceBatch {
+  symbol: string
+  prices: Record<string, number> // date -> price mapping
+}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Stock, PortfolioHolding } from '@/lib/types'
 import AddTransactionModal from './AddTransactionModal'
+import PortfolioChart from './PortfolioChart'
 
 interface PortfolioProps {
   stocks: Stock[]
@@ -214,6 +215,9 @@ export default function Portfolio({ stocks, onSelectStock }: PortfolioProps) {
           </div>
         </div>
       </div>
+
+      {/* Portfolio Chart */}
+      {holdings.length > 0 && <PortfolioChart />}
 
       {/* Empty State or Holdings */}
       {holdings.length === 0 ? (
