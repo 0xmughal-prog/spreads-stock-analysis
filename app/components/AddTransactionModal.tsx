@@ -315,18 +315,26 @@ export default function AddTransactionModal({
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 Purchase Date
               </label>
-              <input
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="input-field w-full px-4 py-3 rounded-lg"
-                style={{
-                  backgroundColor: 'var(--bg-primary)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                }}
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="input-field w-full px-4 py-3 pr-12 rounded-lg cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                    colorScheme: 'dark'
+                  }}
+                />
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--text-secondary)' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
             </div>
 
             {/* Price Per Share */}
@@ -342,13 +350,17 @@ export default function AddTransactionModal({
                   $
                 </span>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*\.?[0-9]*"
                   value={pricePerShare}
                   onChange={(e) => {
-                    setPricePerShare(e.target.value)
-                    setPriceMessage('') // Clear message when manually editing
+                    const value = e.target.value
+                    // Allow only numbers and one decimal point
+                    if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+                      setPricePerShare(value)
+                      setPriceMessage('') // Clear message when manually editing
+                    }
                   }}
                   placeholder="0.00"
                   disabled={fetchingPrice}
@@ -406,11 +418,17 @@ export default function AddTransactionModal({
                 Number of Shares
               </label>
               <input
-                type="number"
-                step="0.01"
-                min="0"
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
                 value={shares}
-                onChange={(e) => setShares(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value
+                  // Allow only numbers and one decimal point
+                  if (value === '' || /^\d*\.?\d{0,4}$/.test(value)) {
+                    setShares(value)
+                  }
+                }}
                 placeholder="0"
                 className="input-field w-full px-4 py-3 rounded-lg"
                 style={{
