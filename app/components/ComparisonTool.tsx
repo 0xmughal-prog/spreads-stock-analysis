@@ -16,8 +16,9 @@ import {
   PolarRadiusAxis,
   Radar,
 } from 'recharts'
-import { Stock } from '@/lib/types'
+import { Stock, RedditSentimentData } from '@/lib/types'
 import { formatLargeCurrency, formatCurrency, formatPercent } from '@/lib/utils'
+import StockLogo from './StockLogo'
 
 interface ComparisonToolProps {
   stocks: Stock[]
@@ -33,6 +34,8 @@ const DARK_COLORS = ['#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7']
 export default function ComparisonTool({ stocks, compareList, onRemove, onClearAll, onAddStock }: ComparisonToolProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [redditData, setRedditData] = useState<Record<string, RedditSentimentData>>({})
+  const [redditLoading, setRedditLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -50,6 +53,38 @@ export default function ComparisonTool({ stocks, compareList, onRemove, onClearA
       )
       .slice(0, 10)
   }, [stocks, searchQuery, compareList])
+
+  // Fetch Reddit data for compared stocks
+  useEffect(() => {
+    const fetchRedditData = async () => {
+      if (compareList.length === 0) {
+        setRedditData({})
+        return
+      }
+
+      setRedditLoading(true)
+      const newRedditData: Record<string, RedditSentimentData> = {}
+
+      await Promise.all(
+        compareList.map(async (symbol) => {
+          try {
+            const response = await fetch(`/api/reddit-sentiment/${symbol}`)
+            if (response.ok) {
+              const data = await response.json()
+              newRedditData[symbol] = data.data24h
+            }
+          } catch (error) {
+            console.error(`Failed to fetch Reddit data for ${symbol}:`, error)
+          }
+        })
+      )
+
+      setRedditData(newRedditData)
+      setRedditLoading(false)
+    }
+
+    fetchRedditData()
+  }, [compareList])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -311,6 +346,7 @@ export default function ComparisonTool({ stocks, compareList, onRemove, onClearA
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white"
               style={{ backgroundColor: COLORS[index % COLORS.length] }}
             >
+              <StockLogo symbol={stock.symbol} logo={stock.logo} size="sm" />
               <span>{stock.symbol}</span>
               <button
                 onClick={() => onRemove(stock.symbol)}
@@ -333,7 +369,10 @@ export default function ComparisonTool({ stocks, compareList, onRemove, onClearA
               <th className="table-header">Metric</th>
               {compareStocks.map((stock) => (
                 <th key={stock.symbol} className="table-header text-center">
-                  {stock.symbol}
+                  <div className="flex flex-col items-center gap-2">
+                    <StockLogo symbol={stock.symbol} logo={stock.logo} size="md" />
+                    <span>{stock.symbol}</span>
+                  </div>
                 </th>
               ))}
             </tr>
@@ -407,6 +446,54 @@ export default function ComparisonTool({ stocks, compareList, onRemove, onClearA
                   {stock.dividendYield ? `${stock.dividendYield.toFixed(2)}%` : 'N/A'}
                 </td>
               ))}
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td className="table-cell font-medium">Reddit Score</td>
+              {compareStocks.map((stock) => {
+                const data = redditData[stock.symbol]
+                return (
+                  <td key={stock.symbol} className="table-cell text-center">
+                    {redditLoading ? (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</span>
+                    ) : data ? (
+                      <span className="font-medium text-orange-600 dark:text-orange-400">
+                        {data.redditScore}
+                      </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>N/A</span>
+                    )}
+                  </td>
+                )
+              })}
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <td className="table-cell font-medium">Sentiment</td>
+              {compareStocks.map((stock) => {
+                const data = redditData[stock.symbol]
+                const getSentimentDisplay = (sentiment?: 'bullish' | 'bearish' | 'neutral') => {
+                  if (!sentiment) return { text: 'N/A', color: 'var(--text-muted)', bg: 'var(--bg-tertiary)' }
+                  if (sentiment === 'bullish') return { text: '🟢 Bullish', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)' }
+                  if (sentiment === 'bearish') return { text: '🔴 Bearish', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' }
+                  return { text: '⚪ Neutral', color: 'var(--text-secondary)', bg: 'var(--bg-tertiary)' }
+                }
+                const sentimentDisplay = getSentimentDisplay(data?.sentiment)
+                return (
+                  <td key={stock.symbol} className="table-cell text-center">
+                    {redditLoading ? (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</span>
+                    ) : data ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                        style={{ color: sentimentDisplay.color, backgroundColor: sentimentDisplay.bg }}
+                      >
+                        {sentimentDisplay.text}
+                      </span>
+                    ) : (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>N/A</span>
+                    )}
+                  </td>
+                )
+              })}
             </tr>
             <tr>
               <td className="table-cell font-medium">Sector</td>

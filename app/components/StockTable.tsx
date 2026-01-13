@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Stock, SortField, SortDirection, FilterState } from '@/lib/types'
 import { formatCurrency, formatLargeCurrency, formatPercent, formatRatio } from '@/lib/utils'
+import StockLogo from './StockLogo'
 
 interface StockTableProps {
   stocks: Stock[]
@@ -136,6 +137,7 @@ export default function StockTable({
           <thead style={{ backgroundColor: 'var(--bg-tertiary)' }}>
             <tr>
               <th className="table-header w-10"></th>
+              <th className="table-header w-12"></th>
               <th className="table-header" onClick={() => handleSort('symbol')}>
                 <div className="flex items-center gap-1">
                   Ticker <SortIcon field="symbol" />
@@ -218,6 +220,9 @@ export default function StockTable({
                       </svg>
                     )}
                   </button>
+                </td>
+                <td className="table-cell">
+                  <StockLogo symbol={stock.symbol} logo={stock.logo} size="md" />
                 </td>
                 <td className="table-cell font-semibold" style={{ color: 'var(--spreads-green)' }}>{stock.symbol}</td>
                 <td className="table-cell max-w-[200px] truncate">{stock.name}</td>

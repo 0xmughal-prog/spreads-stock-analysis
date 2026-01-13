@@ -3,13 +3,20 @@ import Google from "next-auth/providers/google"
 import { kv } from "@vercel/kv"
 
 // User interface for Vercel KV storage
-interface StoredUser {
+export interface StoredUser {
   id: string
   email: string
   name: string | null
   image: string | null
   createdAt: number
   lastLoginAt: number
+  username?: string              // User's unique username
+  usernameLastChanged?: number   // Timestamp of last username change
+  // Gamification fields
+  totalPoints?: number           // Total points earned (each point fills one square in 7x7 grid)
+  lastClaimDate?: string | null  // ISO date string of last claim (UTC), e.g., "2026-01-13"
+  streakDays?: number            // Consecutive days claimed (resets to 0 if day missed)
+  gridState?: boolean[]          // 49 booleans for 7x7 grid (true = filled, false = empty)
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Orbitron, Montserrat } from 'next/font/google'
 import { ThemeProvider } from './context/ThemeContext'
 import SessionProvider from './providers/SessionProvider'
+import PointsGrid from './components/PointsGrid'
 import './globals.css'
 
 const orbitron = Orbitron({
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className="min-h-screen font-body">
         <SessionProvider>
           <ThemeProvider>
+            <PointsGrid />
             {children}
           </ThemeProvider>
         </SessionProvider>

@@ -1,7 +1,9 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { Stock } from '@/lib/types'
 import { formatCurrency, formatLargeCurrency, formatPercent } from '@/lib/utils'
+import StockLogo from './StockLogo'
 
 interface WatchlistProps {
   stocks: Stock[]
@@ -20,6 +22,7 @@ export default function Watchlist({
   onToggleCompare,
   compareList,
 }: WatchlistProps) {
+  const router = useRouter()
   const watchlistStocks = stocks.filter((stock) => watchlist.includes(stock.symbol))
 
   if (watchlistStocks.length === 0) {
@@ -78,6 +81,7 @@ export default function Watchlist({
         <table className="min-w-full" style={{ borderCollapse: 'collapse' }}>
           <thead style={{ backgroundColor: 'var(--bg-tertiary)' }}>
             <tr>
+              <th className="table-header w-12"></th>
               <th className="table-header">Ticker</th>
               <th className="table-header">Company</th>
               <th className="table-header">Price</th>
@@ -94,8 +98,11 @@ export default function Watchlist({
                 key={stock.symbol}
                 className="cursor-pointer transition-colors table-row-animated"
                 style={{ borderBottom: '1px solid var(--border-color)' }}
-                onClick={() => onSelectStock(stock)}
+                onClick={() => router.push(`/stock/${stock.symbol}`)}
               >
+                <td className="table-cell">
+                  <StockLogo symbol={stock.symbol} logo={stock.logo} size="md" />
+                </td>
                 <td className="table-cell font-semibold" style={{ color: 'var(--spreads-green)' }}>{stock.symbol}</td>
                 <td className="table-cell max-w-[200px] truncate">{stock.name}</td>
                 <td className="table-cell font-medium">{formatCurrency(stock.price)}</td>

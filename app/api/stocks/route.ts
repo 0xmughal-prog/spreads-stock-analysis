@@ -229,6 +229,7 @@ function buildStock(symbol: string, quote: FinnhubQuote, metrics: FinnhubMetrics
     dayLow: quote.l,
     yearHigh: metrics?.metric?.['52WeekHigh'] ?? quote.h * 1.1,
     yearLow: metrics?.metric?.['52WeekLow'] ?? quote.l * 0.9,
+    logo: `https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/${symbol}.png`,
   }
 }
 
@@ -298,6 +299,7 @@ function generateMockStocks(): Stock[] {
       dayLow: parseFloat((basePrice * 0.98).toFixed(2)),
       yearHigh: parseFloat((basePrice * 1.25).toFixed(2)),
       yearLow: parseFloat((basePrice * 0.75).toFixed(2)),
+      logo: `https://static2.finnhub.io/file/publicdatany/finnhubimage/stock_logo/${symbol}.png`,
     }
   }).sort((a, b) => b.marketCap - a.marketCap)
 }

@@ -13,6 +13,7 @@ import PERatioRanking from './components/PERatioRanking'
 import EarningsCalendar from './components/EarningsCalendar'
 import RevenueGrowth from './components/RevenueGrowth'
 import SocialMetrics from './components/SocialMetrics'
+import PointsRewards from './components/PointsRewards'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -323,6 +324,14 @@ export default function Home() {
               onAddStock={handleAddToCompare}
             />
           </div>
+        )
+
+      case 'points-rewards':
+        return (
+          <PointsRewards
+            key="points-rewards"
+            stocks={stocks}
+          />
         )
 
       default:

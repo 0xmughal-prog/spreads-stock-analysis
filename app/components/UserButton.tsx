@@ -11,7 +11,27 @@ interface UserButtonProps {
 export default function UserButton({ collapsed = false }: UserButtonProps) {
   const { data: session, status } = useSession()
   const [isOpen, setIsOpen] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Fetch username from profile API
+  useEffect(() => {
+    const fetchUsername = async () => {
+      if (!session?.user) return
+
+      try {
+        const response = await fetch("/api/profile")
+        if (response.ok) {
+          const data = await response.json()
+          setUsername(data.user.username || null)
+        }
+      } catch (error) {
+        console.error("Failed to fetch username:", error)
+      }
+    }
+
+    fetchUsername()
+  }, [session])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -82,7 +102,7 @@ export default function UserButton({ collapsed = false }: UserButtonProps) {
           collapsed ? 'opacity-0 w-0' : 'opacity-100'
         }`}>
           <span className="block text-sm font-medium truncate max-w-[120px]">
-            {session.user.name || "User"}
+            {username ? `@${username}` : (session.user.name || "User")}
           </span>
           {session.user.isAdmin && (
             <span className="text-xs" style={{ color: 'var(--spreads-tan)' }}>Admin</span>
@@ -106,9 +126,24 @@ export default function UserButton({ collapsed = false }: UserButtonProps) {
              style={{ animation: 'fadeIn 0.2s ease-out' }}>
           <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+              {username ? `@${username}` : (session.user.name || "User")}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
               {session.user.email}
             </p>
           </div>
+
+          <Link
+            href="/profile"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </Link>
 
           {session.user.isAdmin && (
             <Link

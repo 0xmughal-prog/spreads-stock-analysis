@@ -18,6 +18,7 @@ export interface Stock {
   dayLow: number
   yearHigh: number
   yearLow: number
+  logo?: string
 }
 
 export interface SP500Constituent {
@@ -244,7 +245,7 @@ export interface EarningsCalendarResponse {
   earningsCalendar: EarningsEvent[]
 }
 
-export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics'
+export type TabType = 'dashboard' | 'watchlist' | 'compare' | 'pe-ratio' | 'earnings' | 'revenue-growth' | 'social-metrics' | 'points-rewards'
 
 // Reddit Sentiment Types
 export interface RedditPost {

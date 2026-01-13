@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { Stock, TrendingRedditStock, RedditSentimentData } from '@/lib/types'
 import { formatMentions, formatRedditScore, getSentimentColor, formatRelativeTime, SUBREDDIT_COLORS } from '@/lib/utils'
+import StockLogo from './StockLogo'
 
 interface SocialMetricsProps {
   stocks: Stock[]
@@ -437,9 +438,7 @@ export default function SocialMetrics({
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 text-xs font-bold">
-                                {item.symbol.slice(0, 2)}
-                              </div>
+                              <StockLogo symbol={item.symbol} logo={item.stockData?.logo} size="md" />
                               <div>
                                 <Link
                                   href={`/stock/${item.symbol}`}
@@ -528,9 +527,11 @@ export default function SocialMetrics({
                 {/* Header with time toggle */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400 font-bold">
-                      {selectedStock.slice(0, 2)}
-                    </div>
+                    <StockLogo
+                      symbol={selectedStock}
+                      logo={stocks.find(s => s.symbol === selectedStock)?.logo}
+                      size="lg"
+                    />
                     <div>
                       <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>{selectedStock}</h3>
                       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Reddit Sentiment</p>
