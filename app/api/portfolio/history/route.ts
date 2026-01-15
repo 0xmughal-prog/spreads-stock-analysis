@@ -15,6 +15,53 @@ import {
   findClosestPrice
 } from "@/lib/portfolio-utils"
 
+const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1'
+const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd5hd4upr01qqequ1n9mgd5hd4upr01qqequ1n9n0'
+
+/**
+ * Fetch real-time quote for a single symbol from Finnhub
+ */
+async function fetchRealTimeQuote(symbol: string): Promise<number | null> {
+  try {
+    const res = await fetch(
+      `${FINNHUB_BASE_URL}/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`,
+      { next: { revalidate: 60 } }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.c || null // current price
+  } catch (error) {
+    console.error(`[Portfolio History] Error fetching real-time quote for ${symbol}:`, error)
+    return null
+  }
+}
+
+/**
+ * Fetch real-time quotes for multiple symbols
+ */
+async function fetchRealTimeQuotes(symbols: string[]): Promise<Map<string, number>> {
+  const quotes = new Map<string, number>()
+
+  console.log(`[Portfolio History] Fetching real-time quotes for ${symbols.length} symbols`)
+
+  // Fetch all quotes in parallel
+  const results = await Promise.all(
+    symbols.map(async (symbol) => ({
+      symbol,
+      price: await fetchRealTimeQuote(symbol)
+    }))
+  )
+
+  for (const { symbol, price } of results) {
+    if (price !== null) {
+      quotes.set(symbol, price)
+    }
+  }
+
+  console.log(`[Portfolio History] Fetched ${quotes.size} real-time quotes`)
+  return quotes
+}
+
 // GET /api/portfolio/history?timeframe=1M - Calculate portfolio historical values
 export async function GET(request: NextRequest) {
   try {
@@ -95,10 +142,16 @@ export async function GET(request: NextRequest) {
     // Get unique symbols
     const symbols = Array.from(new Set(holdings.map(h => h.symbol)))
 
+    // Fetch real-time quotes for today's prices
+    const realTimeQuotes = await fetchRealTimeQuotes(symbols)
+
     // Batch fetch historical prices
     const fromDate = dates[0]
     const toDate = dates[dates.length - 1]
     const priceData = await fetchHistoricalPricesBatch(symbols, fromDate, toDate)
+
+    // Get today's date string for comparison
+    const todayDateStr = new Date().toISOString().split('T')[0]
 
     // Calculate portfolio value for each date
     const snapshots: PortfolioSnapshot[] = []
@@ -106,27 +159,37 @@ export async function GET(request: NextRequest) {
     for (const date of dates) {
       let totalValue = 0
       let totalCost = 0
+      const isToday = date === todayDateStr
 
       for (const holding of holdings) {
         // Only include holdings purchased before or on this date
         if (holding.purchaseDate <= date) {
-          const symbolPrices = priceData.get(holding.symbol)
+          let price: number | null = null
 
-          if (symbolPrices) {
-            // Find price for this date (or closest trading day)
-            const price = findClosestPrice(symbolPrices, date)
-
-            if (price !== null) {
-              totalValue += holding.shares * price
-            } else {
-              // Fallback to purchase price if no historical data
-              totalValue += holding.shares * holding.purchasePrice
+          // For today's date, use real-time quotes
+          if (isToday) {
+            const realTimePrice = realTimeQuotes.get(holding.symbol)
+            if (realTimePrice !== undefined) {
+              price = realTimePrice
             }
-          } else {
-            // Fallback to purchase price if symbol data not available
-            totalValue += holding.shares * holding.purchasePrice
           }
 
+          // If not today or real-time quote not available, use historical data
+          if (price === null) {
+            const symbolPrices = priceData.get(holding.symbol)
+
+            if (symbolPrices) {
+              // Find price for this date (or closest trading day)
+              price = findClosestPrice(symbolPrices, date)
+            }
+          }
+
+          // Final fallback to purchase price
+          if (price === null) {
+            price = holding.purchasePrice
+          }
+
+          totalValue += holding.shares * price
           totalCost += holding.totalCost
         }
       }

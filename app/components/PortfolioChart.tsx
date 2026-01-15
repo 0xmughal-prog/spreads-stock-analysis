@@ -223,10 +223,10 @@ export default function PortfolioChart({ onTimeRangeChange }: PortfolioChartProp
               tick={{ fill: isDark ? '#9ca3af' : '#6b7280' }}
             />
             <Tooltip content={<CustomTooltip />} />
-            {/* Reference line for break-even */}
+            {/* Reference line for break-even (using final total cost) */}
             {chartData.length > 0 && (
               <ReferenceLine
-                y={chartData[0].totalCost}
+                y={chartData[chartData.length - 1].totalCost}
                 stroke={isDark ? '#6b7280' : '#9ca3af'}
                 strokeDasharray="5 5"
                 label={{
