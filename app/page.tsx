@@ -17,6 +17,7 @@ import SocialMetrics from './components/SocialMetrics'
 import PointsRewards from './components/PointsRewards'
 import CompoundInterestCalculator from './components/CompoundInterestCalculator'
 import Portfolio from './components/Portfolio'
+import StockHeatmap from './components/StockHeatmap'
 import { Stock, FilterState, TabType } from '@/lib/types'
 
 const WATCHLIST_STORAGE_KEY = 'spreads_watchlist'
@@ -364,6 +365,15 @@ export default function Home() {
           />
         )
 
+      case 'heatmap':
+        return (
+          <StockHeatmap
+            key="heatmap"
+            stocks={stocks}
+            onSelectStock={handleSelectStock}
+          />
+        )
+
       default:
         return null
     }
@@ -373,7 +383,6 @@ export default function Home() {
     <div className="min-h-screen bg-off-white dark:bg-dark-bg">
       {/* Grid Background */}
       <div className="grid-background" />
-      <div className="grid-squares" />
 
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 px-4 flex items-center justify-between"
