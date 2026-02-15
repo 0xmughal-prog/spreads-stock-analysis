@@ -32,7 +32,7 @@ export default function RootLayout({
       <body className="min-h-screen font-body">
         <SessionProvider>
           <ThemeProvider>
-            <PointsGrid />
+            {/* <PointsGrid /> */}
             {children}
           </ThemeProvider>
         </SessionProvider>
