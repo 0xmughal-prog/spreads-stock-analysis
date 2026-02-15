@@ -7,13 +7,15 @@ const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1'
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'd5hd4upr01qqequ1n9mgd5hd4upr01qqequ1n9n0'
 
 // Cache configuration
-const CACHE_KEY = 'stocks:sp100'
-const CACHE_TTL_SECONDS = 300 // 5 minutes
+const CACHE_KEY = 'stocks:sp500'
+const CACHE_TTL_SECONDS = 600 // 10 minutes (longer cache for more stocks)
 
-// S&P 100 stocks (top 100 by market cap)
-const SP100_SYMBOLS = [
+// S&P 500 Top 200 stocks by market cap (for heatmap)
+const SP500_SYMBOLS = [
+  // Mega cap (>$500B)
   'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK.B', 'UNH', 'JNJ',
   'JPM', 'V', 'XOM', 'PG', 'MA', 'HD', 'CVX', 'MRK', 'ABBV', 'LLY',
+  // Large cap ($100B-$500B)
   'PEP', 'KO', 'COST', 'BAC', 'PFE', 'WMT', 'TMO', 'CSCO', 'MCD', 'DIS',
   'ABT', 'ACN', 'DHR', 'VZ', 'ADBE', 'NKE', 'CMCSA', 'TXN', 'NEE', 'PM',
   'WFC', 'BMY', 'COP', 'RTX', 'UNP', 'MS', 'UPS', 'ORCL', 'HON', 'INTC',
@@ -21,7 +23,24 @@ const SP100_SYMBOLS = [
   'SBUX', 'DE', 'INTU', 'BLK', 'ISRG', 'GILD', 'AXP', 'MDLZ', 'ADI', 'SYK',
   'TJX', 'BKNG', 'REGN', 'ADP', 'VRTX', 'CVS', 'MMC', 'LMT', 'C', 'TMUS',
   'AMT', 'SCHW', 'CI', 'MO', 'EOG', 'ZTS', 'SO', 'PLD', 'DUK', 'EQIX',
-  'BDX', 'SLB', 'NOC', 'CB', 'BSX', 'AON', 'ITW', 'CL', 'CME', 'NFLX'
+  'BDX', 'SLB', 'NOC', 'CB', 'BSX', 'AON', 'ITW', 'CL', 'CME', 'NFLX',
+  // Additional top 100
+  'USB', 'FI', 'PNC', 'TGT', 'COIN', 'SHW', 'MCO', 'CCI', 'HCA', 'GM',
+  'AIG', 'PYPL', 'BK', 'PGR', 'DG', 'PSA', 'CL', 'ETN', 'MCK', 'ICE',
+  'COF', 'ECL', 'WM', 'EMR', 'NSC', 'MMM', 'AJG', 'WELL', 'O', 'TT',
+  'CARR', 'GD', 'APD', 'SRE', 'AEP', 'CSX', 'F', 'KLAC', 'LRCX', 'AMAT',
+  'PANW', 'CRWD', 'FTNT', 'MRVL', 'ADSK', 'PAYX', 'ROST', 'ODFL', 'CTAS', 'ORLY',
+  // Tech & Growth
+  'AVGO', 'ASML', 'AMD', 'CRM', 'NOW', 'SNOW', 'DDOG', 'NET', 'ZS', 'WDAY',
+  'SHOP', 'SQ', 'TEAM', 'DOCU', 'ZM', 'UBER', 'LYFT', 'ABNB', 'DASH', 'RIVN',
+  // Healthcare
+  'MRNA', 'BIIB', 'ILMN', 'ALGN', 'IDXX', 'DXCM', 'ZBH', 'HOLX', 'BAX', 'BDX',
+  // Consumer
+  'NKE', 'LULU', 'DECK', 'DPZ', 'YUM', 'CMG', 'SBUX', 'MCD', 'QSR', 'WEN',
+  // Finance
+  'GS', 'MS', 'JPM', 'BAC', 'C', 'WFC', 'USB', 'PNC', 'TFC', 'BK',
+  // Energy
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'HAL'
 ]
 
 // Stock metadata for names and sectors
@@ -234,16 +253,16 @@ function buildStock(symbol: string, quote: FinnhubQuote, metrics: FinnhubMetrics
 }
 
 /**
- * Fetch all S&P 100 stocks in parallel batches
+ * Fetch all S&P 500 stocks in parallel batches
  */
 async function fetchAllStocks(): Promise<Stock[]> {
   const stocks: Stock[] = []
-  const batchSize = 20 // Fetch 20 stocks at a time
+  const batchSize = 30 // Fetch 30 stocks at a time (within rate limit)
 
-  console.log(`[API] Fetching ${SP100_SYMBOLS.length} S&P 100 stocks...`)
+  console.log(`[API] Fetching ${SP500_SYMBOLS.length} S&P 500 stocks...`)
 
-  for (let i = 0; i < SP100_SYMBOLS.length; i += batchSize) {
-    const batch = SP100_SYMBOLS.slice(i, i + batchSize)
+  for (let i = 0; i < SP500_SYMBOLS.length; i += batchSize) {
+    const batch = SP500_SYMBOLS.slice(i, i + batchSize)
 
     // Fetch quotes and metrics in parallel for this batch
     const results = await Promise.all(
@@ -262,10 +281,15 @@ async function fetchAllStocks(): Promise<Stock[]> {
       if (stock) stocks.push(stock)
     }
 
-    console.log(`[API] Progress: ${Math.min(i + batchSize, SP100_SYMBOLS.length)}/${SP100_SYMBOLS.length}`)
+    console.log(`[API] Progress: ${Math.min(i + batchSize, SP500_SYMBOLS.length)}/${SP500_SYMBOLS.length}`)
+
+    // Small delay between batches to respect rate limits
+    if (i + batchSize < SP500_SYMBOLS.length) {
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
   }
 
-  console.log(`[API] Completed: ${stocks.length} stocks fetched`)
+  console.log(`[API] Completed: ${stocks.length} stocks fetched successfully`)
   return stocks.sort((a, b) => b.marketCap - a.marketCap)
 }
 
@@ -273,7 +297,7 @@ async function fetchAllStocks(): Promise<Stock[]> {
  * Generate mock stocks for fallback
  */
 function generateMockStocks(): Stock[] {
-  return SP100_SYMBOLS.map((symbol, index) => {
+  return SP500_SYMBOLS.map((symbol, index) => {
     const metadata = STOCK_METADATA[symbol] || { name: symbol, sector: 'Other', industry: '' }
     const basePrice = 50 + Math.random() * 400
     const change = (Math.random() - 0.5) * 10

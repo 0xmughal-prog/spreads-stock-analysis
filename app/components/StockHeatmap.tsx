@@ -31,19 +31,6 @@ interface TreemapNode {
   value: number
 }
 
-// Region filters
-const REGIONS = [
-  'All',
-  '🇺🇸 United States',
-  '🇬🇧 United Kingdom',
-  '🇭🇰 Hong Kong',
-  '🇨🇳 China',
-  '🇯🇵 Japan',
-  '🇸🇬 Singapore',
-  '🇰🇷 South Korea',
-  '🇮🇳 India'
-]
-
 // Sector categories
 const SECTORS = [
   'All Sectors',
@@ -63,53 +50,31 @@ const SECTORS = [
 export default function StockHeatmap({ stocks: localStocks, onSelectStock }: StockHeatmapProps) {
   const [heatmapStocks, setHeatmapStocks] = useState<HeatmapStock[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedRegion, setSelectedRegion] = useState<string>('All')
   const [selectedSector, setSelectedSector] = useState<string>('All Sectors')
   const [hoveredStock, setHoveredStock] = useState<string | null>(null)
 
-  // Fetch heatmap data
+  // Use local stocks data (already fetched from Finnhub)
   useEffect(() => {
-    const fetchHeatmapData = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch('/api/stocks/heatmap')
-        if (!response.ok) throw new Error('Failed to fetch')
-
-        const result = await response.json()
-        setHeatmapStocks(result.data || [])
-      } catch (error) {
-        console.error('Failed to load heatmap data:', error)
-        // Fallback to local stocks if heatmap API fails
-        const fallbackStocks: HeatmapStock[] = localStocks.map(s => ({
-          symbol: s.symbol,
-          name: s.name,
-          price: s.price,
-          change: s.change,
-          changesPercentage: s.changesPercentage,
-          marketCap: s.marketCap,
-          sector: s.sector,
-          industry: s.industry,
-          region: 'United States',
-          exchange: s.exchange,
-          logo: s.logo
-        }))
-        setHeatmapStocks(fallbackStocks)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchHeatmapData()
+    const convertedStocks: HeatmapStock[] = localStocks.map(s => ({
+      symbol: s.symbol,
+      name: s.name,
+      price: s.price,
+      change: s.change,
+      changesPercentage: s.changesPercentage,
+      marketCap: s.marketCap,
+      sector: s.sector,
+      industry: s.industry,
+      region: 'United States',
+      exchange: s.exchange,
+      logo: s.logo
+    }))
+    setHeatmapStocks(convertedStocks)
+    setLoading(false)
   }, [localStocks])
 
-  // Filter stocks by region and sector
+  // Filter stocks by sector
   const filteredStocks = useMemo(() => {
     return heatmapStocks.filter(stock => {
-      // Region filter
-      if (selectedRegion !== 'All' && !selectedRegion.includes(stock.region)) {
-        return false
-      }
-
       // Sector filter
       if (selectedSector !== 'All Sectors') {
         const stockSector = stock.sector || ''
@@ -128,7 +93,7 @@ export default function StockHeatmap({ stocks: localStocks, onSelectStock }: Sto
 
       return true
     })
-  }, [heatmapStocks, selectedRegion, selectedSector])
+  }, [heatmapStocks, selectedSector])
 
   // Calculate color based on percentage change
   const getColor = (changePercent: number, min: number, max: number) => {
@@ -265,39 +230,11 @@ export default function StockHeatmap({ stocks: localStocks, onSelectStock }: Sto
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-          Global Stock Market Heatmap
+          S&P 500 Stock Market Heatmap
         </h2>
         <p style={{ color: 'var(--text-secondary)' }}>
-          Visualize {filteredStocks.length} stocks across global markets by market cap and daily performance
+          Visualize {filteredStocks.length} stocks by market cap and daily performance
         </p>
-      </div>
-
-      {/* Region Filters */}
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2">
-          {REGIONS.map(region => (
-            <button
-              key={region}
-              onClick={() => setSelectedRegion(region)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                selectedRegion === region
-                  ? 'text-white shadow-lg'
-                  : 'hover:opacity-80'
-              }`}
-              style={{
-                backgroundColor: selectedRegion === region
-                  ? 'var(--spreads-green)'
-                  : 'var(--card-bg)',
-                color: selectedRegion === region
-                  ? 'white'
-                  : 'var(--text-primary)',
-                border: `1px solid ${selectedRegion === region ? 'var(--spreads-green)' : 'var(--border-color)'}`
-              }}
-            >
-              {region}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Sector Filters */}
