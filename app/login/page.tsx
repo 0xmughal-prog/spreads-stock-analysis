@@ -17,9 +17,6 @@ function LoginContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-off-white dark:bg-dark-bg">
-      {/* Grid Background */}
-      <div className="grid-background" />
-
       <div className="relative z-10 w-full max-w-md px-4">
         <div className="card p-8">
           {/* Logo */}

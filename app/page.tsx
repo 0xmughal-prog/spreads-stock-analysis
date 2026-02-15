@@ -381,9 +381,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-off-white dark:bg-dark-bg">
-      {/* Grid Background */}
-      <div className="grid-background" />
-
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 px-4 flex items-center justify-between"
            style={{ backgroundColor: 'var(--header-bg)' }}>

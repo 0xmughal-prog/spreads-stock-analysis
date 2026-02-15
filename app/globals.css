@@ -50,7 +50,8 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Grid background pattern */
+/* Grid background pattern - DISABLED */
+/*
 .grid-background {
   position: fixed;
   inset: 0;
@@ -67,6 +68,7 @@ body {
     linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
 }
+*/
 
 /* Animated grid squares effect - DISABLED */
 /*

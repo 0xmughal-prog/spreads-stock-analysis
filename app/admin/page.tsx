@@ -100,8 +100,6 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-off-white dark:bg-dark-bg">
-      <div className="grid-background" />
-
       <div className="relative z-10 max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
